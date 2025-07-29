@@ -215,7 +215,37 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
   }
 });
 
-// GET /api/admin/menu - Get all menu items (including inactive)
+/**
+ * @swagger
+ * /api/admin/menu:
+ *   get:
+ *     summary: Get all menu items (including inactive)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: Menu items retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Beverage'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/menu', authenticateToken, async (req, res) => {
   try {
     const beverages = await Beverage.findAll(false); // Include inactive items
@@ -232,7 +262,70 @@ router.get('/menu', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/admin/menu - Create new menu item
+/**
+ * @swagger
+ * /api/admin/menu:
+ *   post:
+ *     summary: Create new menu item
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Flat White"
+ *               category:
+ *                 type: string
+ *                 example: "Coffee"
+ *               base_price:
+ *                 type: number
+ *                 format: decimal
+ *                 example: 4.50
+ *               customizations:
+ *                 type: object
+ *                 example:
+ *                   sizes: ["Small", "Medium", "Large"]
+ *                   milk: ["Regular", "Oat", "Almond"]
+ *               active:
+ *                 type: boolean
+ *                 example: true
+ *             required: [name, category, base_price]
+ *     responses:
+ *       201:
+ *         description: Menu item created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Beverage'
+ *                 message:
+ *                   type: string
+ *                   example: Menu item created successfully
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post('/menu', authenticateToken, validateBeverage, async (req, res) => {
   try {
     const beverageData = {
@@ -259,7 +352,83 @@ router.post('/menu', authenticateToken, validateBeverage, async (req, res) => {
   }
 });
 
-// PUT /api/admin/menu/:id - Update menu item
+/**
+ * @swagger
+ * /api/admin/menu/{id}:
+ *   put:
+ *     summary: Update menu item
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Menu item ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Updated Coffee Name"
+ *               category:
+ *                 type: string
+ *                 example: "Coffee"
+ *               base_price:
+ *                 type: number
+ *                 format: decimal
+ *                 example: 5.00
+ *               customizations:
+ *                 type: object
+ *                 example:
+ *                   sizes: ["Small", "Medium", "Large", "Extra Large"]
+ *                   milk: ["Regular", "Oat", "Almond", "Soy"]
+ *               active:
+ *                 type: boolean
+ *                 example: true
+ *             required: [name, category, base_price]
+ *     responses:
+ *       200:
+ *         description: Menu item updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Beverage'
+ *                 message:
+ *                   type: string
+ *                   example: Menu item updated successfully
+ *       404:
+ *         description: Menu item not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.put('/menu/:id', authenticateToken, validateId, validateBeverage, async (req, res) => {
   try {
     const beverageId = req.params.id;
@@ -297,7 +466,57 @@ router.put('/menu/:id', authenticateToken, validateId, validateBeverage, async (
   }
 });
 
-// DELETE /api/admin/menu/:id - Delete menu item
+/**
+ * @swagger
+ * /api/admin/menu/{id}:
+ *   delete:
+ *     summary: Delete menu item
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Menu item ID
+ *     responses:
+ *       200:
+ *         description: Menu item deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Beverage'
+ *                 message:
+ *                   type: string
+ *                   example: Menu item deleted successfully
+ *       404:
+ *         description: Menu item not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error (may occur if item has existing orders)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.delete('/menu/:id', authenticateToken, validateId, async (req, res) => {
   try {
     const beverageId = req.params.id;

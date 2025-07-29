@@ -62,6 +62,8 @@ test-*.js
 create-*.js
 fix-*.js
 debug-*.js
+update-*.js
+check-*.js
 
 # Temporary files
 *.tmp

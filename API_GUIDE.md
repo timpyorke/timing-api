@@ -59,6 +59,54 @@ curl -X PUT http://localhost:3000/api/admin/orders/1/status \
   -d '{"status": "preparing"}'
 ```
 
+### 6. Menu Management (Admin)
+
+#### Get All Menu Items
+```bash
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  http://localhost:3000/api/admin/menu
+```
+
+#### Create New Menu Item
+```bash
+curl -X POST http://localhost:3000/api/admin/menu \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Flat White",
+    "category": "Coffee",
+    "base_price": 4.50,
+    "customizations": {
+      "sizes": ["Small", "Medium", "Large"],
+      "milk": ["Regular", "Oat", "Almond", "Soy"]
+    },
+    "active": true
+  }'
+```
+
+#### Update Menu Item
+```bash
+curl -X PUT http://localhost:3000/api/admin/menu/6 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Premium Flat White",
+    "category": "Coffee",
+    "base_price": 5.00,
+    "customizations": {
+      "sizes": ["Small", "Medium", "Large", "Extra Large"],
+      "milk": ["Regular", "Oat", "Almond", "Soy", "Coconut"]
+    },
+    "active": true
+  }'
+```
+
+#### Delete Menu Item
+```bash
+curl -X DELETE http://localhost:3000/api/admin/menu/6 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
 ## Using Swagger UI
 
 1. **Navigate to**: http://localhost:3000/api-docs

@@ -36,10 +36,10 @@ Visit: http://localhost:3000/api-docs
 
 ### Step 4: Test Protected Endpoints
 Now you can test any admin endpoint:
-- `/api/admin/orders`
-- `/api/admin/orders/{id}/status`
-- `/api/admin/menu`
-- `/api/admin/sales/today`
+- `/api/admin/orders` - Get all orders with filters
+- `/api/admin/orders/{id}/status` - Update order status
+- `/api/admin/menu` - Full menu CRUD operations
+- `/api/admin/sales/today` - Daily sales summary
 
 ## Example JWT Token
 ```
@@ -66,7 +66,28 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInVzZXJuYW1lIjoiYWRtaW4iLCJ
   ```
 - **Valid Status Values**: pending, preparing, ready, completed, cancelled
 
-### 3. Daily Sales
+### 3. Menu Management
+- **Endpoints**:
+  - `GET /api/admin/menu` - Get all menu items (including inactive)
+  - `POST /api/admin/menu` - Create new menu item
+  - `PUT /api/admin/menu/{id}` - Update existing menu item
+  - `DELETE /api/admin/menu/{id}` - Delete menu item
+- **Authorization**: Required
+- **Create/Update Body**:
+  ```json
+  {
+    "name": "Flat White",
+    "category": "Coffee",
+    "base_price": 4.50,
+    "customizations": {
+      "sizes": ["Small", "Medium", "Large"],
+      "milk": ["Regular", "Oat", "Almond", "Soy"]
+    },
+    "active": true
+  }
+  ```
+
+### 4. Daily Sales
 - **Endpoint**: `GET /api/admin/sales/today`
 - **Authorization**: Required
 - **Response**: Daily sales summary with totals and counts
