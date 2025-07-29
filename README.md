@@ -43,6 +43,24 @@ Node.js/Express API for order management system with Firebase push notifications
    npm start
    ```
 
+6. **Access API Documentation:**
+   ```bash
+   # Visit Swagger UI documentation
+   http://localhost:3000/api-docs
+   
+   # Or run
+   npm run docs
+   ```
+
+## Authentication in Swagger UI
+
+1. **Get JWT Token**: Use `/api/admin/login` with credentials `admin/admin123`
+2. **Authorize**: Click the "Authorize" 🔒 button in Swagger UI
+3. **Enter Token**: Paste the JWT token (without "Bearer " prefix)
+4. **Test Endpoints**: Try any admin endpoint with authentication
+
+See `SWAGGER_AUTH_GUIDE.md` for detailed instructions.
+
 ## API Endpoints
 
 ### Customer Endpoints

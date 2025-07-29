@@ -58,8 +58,15 @@ FIREBASE_CLIENT_ID="112253221953466838180"
 npm install          # Install dependencies
 npm run dev         # Start development server with nodemon
 npm start           # Start production server
-node scripts/init-db.js  # Initialize database schema
+npm run init-db     # Initialize database schema
+npm run docs        # Show API documentation URL
 ```
+
+## API Documentation
+- **Swagger UI**: Available at `http://localhost:3000/api-docs`
+- **Interactive testing**: All endpoints can be tested directly from Swagger UI
+- **Schema validation**: Complete request/response schemas documented
+- **Authentication**: JWT Bearer token authentication documented
 
 ## Current Status
 

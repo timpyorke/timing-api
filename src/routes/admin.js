@@ -12,7 +12,45 @@ const {
   validateId 
 } = require('../middleware/validation');
 
-// POST /api/admin/login - Admin authentication
+/**
+ * @swagger
+ * tags:
+ *   name: Admin
+ *   description: Admin-only API endpoints (requires authentication)
+ */
+
+/**
+ * @swagger
+ * /api/admin/login:
+ *   post:
+ *     summary: Admin authentication
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LoginResponse'
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ */
 router.post('/login', validateLogin, async (req, res) => {
   try {
     const { username, password, fcm_token } = req.body;
@@ -63,7 +101,53 @@ router.post('/login', validateLogin, async (req, res) => {
   }
 });
 
-// GET /api/admin/orders - All orders with filters
+/**
+ * @swagger
+ * /api/admin/orders:
+ *   get:
+ *     summary: Get all orders with optional filters
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, preparing, ready, completed, cancelled]
+ *         description: Filter orders by status
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter orders by date (YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: Orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Order'
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/orders', authenticateToken, async (req, res) => {
   try {
     const filters = {};
@@ -241,7 +325,35 @@ router.delete('/menu/:id', authenticateToken, validateId, async (req, res) => {
   }
 });
 
-// GET /api/admin/sales/today - Daily sales summary
+/**
+ * @swagger
+ * /api/admin/sales/today:
+ *   get:
+ *     summary: Get daily sales summary
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: Daily sales data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/SalesData'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/sales/today', authenticateToken, async (req, res) => {
   try {
     const salesData = await Order.getTodaySales();

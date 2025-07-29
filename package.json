@@ -7,6 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "init-db": "node scripts/init-db.js",
+    "docs": "echo 'API Documentation available at http://localhost:3000/api-docs'",
     "test": "jest"
   },
   "dependencies": {
@@ -19,7 +20,9 @@
     "firebase-admin": "^11.11.1",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "jest": "^29.6.2",

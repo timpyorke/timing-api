@@ -5,7 +5,41 @@ const Order = require('../models/Order');
 const NotificationService = require('../services/notificationService');
 const { validateOrder, validateId } = require('../middleware/validation');
 
-// GET /api/menu - Public menu with categories
+/**
+ * @swagger
+ * tags:
+ *   name: Customer
+ *   description: Customer-facing API endpoints
+ */
+
+/**
+ * @swagger
+ * /api/menu:
+ *   get:
+ *     summary: Get public menu with categories
+ *     tags: [Customer]
+ *     responses:
+ *       200:
+ *         description: Menu retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/MenuCategory'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/menu', async (req, res) => {
   try {
     const menu = await Beverage.getMenuByCategory();
@@ -22,7 +56,47 @@ router.get('/menu', async (req, res) => {
   }
 });
 
-// POST /api/orders - Create new order + trigger Firebase notification
+/**
+ * @swagger
+ * /api/orders:
+ *   post:
+ *     summary: Create a new order
+ *     tags: [Customer]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateOrderRequest'
+ *     responses:
+ *       201:
+ *         description: Order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Order'
+ *                 message:
+ *                   type: string
+ *                   example: Order created successfully
+ *       400:
+ *         description: Validation error or invalid data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post('/orders', validateOrder, async (req, res) => {
   try {
     const orderData = {
@@ -83,7 +157,45 @@ router.post('/orders', validateOrder, async (req, res) => {
   }
 });
 
-// GET /api/orders/:id/status - Check order status
+/**
+ * @swagger
+ * /api/orders/{id}/status:
+ *   get:
+ *     summary: Check order status
+ *     tags: [Customer]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Order ID
+ *     responses:
+ *       200:
+ *         description: Order status retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Order'
+ *       404:
+ *         description: Order not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/orders/:id/status', validateId, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
