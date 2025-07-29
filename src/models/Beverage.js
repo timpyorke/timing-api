@@ -1,0 +1,80 @@
+const pool = require('../config/database');
+
+class Beverage {
+  static async findAll(activeOnly = true) {
+    const query = activeOnly 
+      ? 'SELECT * FROM beverages WHERE active = true ORDER BY category, name'
+      : 'SELECT * FROM beverages ORDER BY category, name';
+    const result = await pool.query(query);
+    return result.rows;
+  }
+
+  static async findById(id) {
+    const query = 'SELECT * FROM beverages WHERE id = $1';
+    const result = await pool.query(query, [id]);
+    return result.rows[0];
+  }
+
+  static async create(beverageData) {
+    const query = `
+      INSERT INTO beverages (name, category, base_price, customizations, active)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      beverageData.name,
+      beverageData.category,
+      beverageData.base_price,
+      beverageData.customizations || {},
+      beverageData.active !== undefined ? beverageData.active : true
+    ]);
+    return result.rows[0];
+  }
+
+  static async update(id, beverageData) {
+    const query = `
+      UPDATE beverages 
+      SET name = $1, category = $2, base_price = $3, customizations = $4, active = $5, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $6
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      beverageData.name,
+      beverageData.category,
+      beverageData.base_price,
+      beverageData.customizations || {},
+      beverageData.active,
+      id
+    ]);
+    return result.rows[0];
+  }
+
+  static async delete(id) {
+    const query = 'DELETE FROM beverages WHERE id = $1 RETURNING *';
+    const result = await pool.query(query, [id]);
+    return result.rows[0];
+  }
+
+  static async getMenuByCategory() {
+    const query = `
+      SELECT 
+        category,
+        json_agg(
+          json_build_object(
+            'id', id,
+            'name', name,
+            'base_price', base_price,
+            'customizations', customizations
+          )
+        ) as items
+      FROM beverages 
+      WHERE active = true
+      GROUP BY category
+      ORDER BY category
+    `;
+    const result = await pool.query(query);
+    return result.rows;
+  }
+}
+
+module.exports = Beverage;
