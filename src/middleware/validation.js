@@ -25,9 +25,9 @@ const validateOrder = [
   handleValidationErrors
 ];
 
-// Beverage validation
-const validateBeverage = [
-  body('name').notEmpty().withMessage('Beverage name is required'),
+// Menu validation
+const validateMenu = [
+  body('name').notEmpty().withMessage('Menu item name is required'),
   body('category').notEmpty().withMessage('Category is required'),
   body('base_price').isFloat({ min: 0 }).withMessage('Base price must be a positive number'),
   body('customizations').optional().isObject().withMessage('Customizations must be an object'),
@@ -56,11 +56,20 @@ const validateId = [
   handleValidationErrors
 ];
 
+// FCM token validation
+const validateFcmToken = [
+  body('fcm_token').notEmpty().withMessage('FCM token is required')
+    .isString().withMessage('FCM token must be a string')
+    .isLength({ min: 10 }).withMessage('FCM token is too short'),
+  handleValidationErrors
+];
+
 module.exports = {
   validateOrder,
-  validateBeverage,
+  validateMenu,
   validateLogin,
   validateOrderStatus,
   validateId,
+  validateFcmToken,
   handleValidationErrors
 };

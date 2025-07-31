@@ -1,15 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const AdminUser = require('../models/AdminUser');
 const Order = require('../models/Order');
-const Beverage = require('../models/Beverage');
+const Menu = require('../models/Menu');
+const FcmToken = require('../models/FcmToken');
 const NotificationService = require('../services/notificationService');
 const { authenticateToken, generateToken } = require('../middleware/auth');
+const pool = require('../config/database');
 const { 
   validateLogin, 
   validateOrderStatus, 
-  validateBeverage, 
-  validateId 
+  validateMenu, 
+  validateId,
+  validateFcmToken 
 } = require('../middleware/validation');
 
 /**
@@ -21,82 +23,123 @@ const {
 
 /**
  * @swagger
- * /api/admin/login:
+ * /api/admin/fcm-token:
  *   post:
- *     summary: Admin authentication
+ *     summary: Store FCM token for push notifications
+ *     description: Stores a Firebase Cloud Messaging token associated with the authenticated user for receiving push notifications. The token is stored separately from user accounts and can be updated multiple times.
  *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/LoginRequest'
+ *             $ref: '#/components/schemas/FcmTokenRequest'
  *     responses:
  *       200:
- *         description: Login successful
+ *         description: FCM token stored successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/LoginResponse'
- *       401:
- *         description: Invalid credentials
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *               $ref: '#/components/schemas/FcmTokenResponse'
  *       400:
  *         description: Validation error
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ValidationError'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
-router.post('/login', validateLogin, async (req, res) => {
+router.post('/fcm-token', authenticateToken, validateFcmToken, async (req, res) => {
   try {
-    const { username, password, fcm_token } = req.body;
-
-    // Find admin user
-    const user = await AdminUser.findByUsername(username);
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-    }
-
-    // Validate password
-    const isValidPassword = await AdminUser.validatePassword(password, user.password_hash);
-    if (!isValidPassword) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-    }
-
-    // Update FCM token if provided
-    if (fcm_token) {
-      await AdminUser.updateFcmToken(user.id, fcm_token);
-    }
-
-    // Generate JWT token
-    const token = generateToken(user.id, user.username);
-
+    const { fcm_token } = req.body;
+    
+    // Store FCM token with optional device info
+    const deviceInfo = {
+      userAgent: req.headers['user-agent'],
+      ip: req.ip,
+      timestamp: new Date().toISOString()
+    };
+    
+    const storedToken = await FcmToken.store(fcm_token, req.user.uid, deviceInfo);
+    
     res.json({
       success: true,
       data: {
-        token,
+        token_id: storedToken.id,
         user: {
-          id: user.id,
-          username: user.username
+          uid: req.user.uid,
+          email: req.user.email,
+          email_verified: req.user.email_verified
         }
       },
-      message: 'Login successful'
+      message: 'FCM token stored successfully'
     });
   } catch (error) {
-    console.error('Error during admin login:', error);
+    console.error('Error storing FCM token:', error);
     res.status(500).json({
       success: false,
-      error: 'Login failed'
+      error: 'Failed to store FCM token'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/debug-token:
+ *   get:
+ *     summary: Debug token validation
+ *     description: Validates the Firebase JWT token and returns user information. Useful for debugging authentication issues.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: Token is valid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DebugTokenResponse'
+ *       401:
+ *         description: Invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Token verification failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/debug-token', authenticateToken, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      message: 'Token is valid',
+      user: req.user,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Debug token error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Debug endpoint failed'
     });
   }
 });
@@ -176,6 +219,333 @@ router.get('/orders', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/orders:
+ *   post:
+ *     summary: Create new order (admin)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateOrderRequest'
+ *     responses:
+ *       201:
+ *         description: Order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Order'
+ *                 message:
+ *                   type: string
+ *                   example: Order created successfully
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/orders', authenticateToken, async (req, res) => {
+  try {
+    const orderData = {
+      customer_info: req.body.customer_info,
+      items: req.body.items,
+      total: req.body.total
+    };
+
+    // Validate that menu items exist and calculate total
+    let calculatedTotal = 0;
+    for (const item of orderData.items) {
+      const menuItem = await Menu.findById(item.beverage_id);
+      if (!menuItem) {
+        return res.status(400).json({
+          success: false,
+          error: `Menu item with ID ${item.beverage_id} not found`
+        });
+      }
+      if (!menuItem.active) {
+        return res.status(400).json({
+          success: false,
+          error: `Menu item "${menuItem.name}" is currently unavailable`
+        });
+      }
+      calculatedTotal += parseFloat(item.price) * item.quantity;
+    }
+
+    // Verify the total matches (allow small floating point differences)
+    if (Math.abs(calculatedTotal - parseFloat(orderData.total)) > 0.01) {
+      return res.status(400).json({
+        success: false,
+        error: 'Order total does not match item prices'
+      });
+    }
+
+    // Create the order
+    const order = await Order.create(orderData);
+
+    res.status(201).json({
+      success: true,
+      data: order,
+      message: 'Order created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create order'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/orders/{id}:
+ *   get:
+ *     summary: Get specific order by ID
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Order ID
+ *     responses:
+ *       200:
+ *         description: Order retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Order'
+ *       404:
+ *         description: Order not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/orders/:id', authenticateToken, validateId, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch order'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/orders/{id}:
+ *   put:
+ *     summary: Update order (full order update)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateOrderRequest'
+ *     responses:
+ *       200:
+ *         description: Order updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Order'
+ *                 message:
+ *                   type: string
+ *                   example: Order updated successfully
+ *       404:
+ *         description: Order not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.put('/orders/:id', authenticateToken, validateId, async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    
+    // Check if order exists
+    const existingOrder = await Order.findById(orderId);
+    if (!existingOrder) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    const orderData = {
+      customer_info: req.body.customer_info,
+      items: req.body.items,
+      total: req.body.total
+    };
+
+    // Update order
+    const updatedOrder = await Order.update(orderId, orderData);
+
+    res.json({
+      success: true,
+      data: updatedOrder,
+      message: 'Order updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update order'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/orders/{id}:
+ *   delete:
+ *     summary: Delete order
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Order ID
+ *     responses:
+ *       200:
+ *         description: Order deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Order'
+ *                 message:
+ *                   type: string
+ *                   example: Order deleted successfully
+ *       404:
+ *         description: Order not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.delete('/orders/:id', authenticateToken, validateId, async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    
+    const deletedOrder = await Order.delete(orderId);
+    
+    if (!deletedOrder) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: deletedOrder,
+      message: 'Order deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete order'
+    });
+  }
+});
+
 // PUT /api/admin/orders/:id/status - Update order status
 router.put('/orders/:id/status', authenticateToken, validateId, validateOrderStatus, async (req, res) => {
   try {
@@ -238,7 +608,7 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/Beverage'
+ *                     $ref: '#/components/schemas/MenuItem'
  *       401:
  *         description: Unauthorized
  *         content:
@@ -248,10 +618,10 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
  */
 router.get('/menu', authenticateToken, async (req, res) => {
   try {
-    const beverages = await Beverage.findAll(false); // Include inactive items
+    const menuItems = await Menu.findAll(false); // Include inactive items
     res.json({
       success: true,
-      data: beverages
+      data: menuItems
     });
   } catch (error) {
     console.error('Error fetching admin menu:', error);
@@ -309,7 +679,7 @@ router.get('/menu', authenticateToken, async (req, res) => {
  *                   type: boolean
  *                   example: true
  *                 data:
- *                   $ref: '#/components/schemas/Beverage'
+ *                   $ref: '#/components/schemas/MenuItem'
  *                 message:
  *                   type: string
  *                   example: Menu item created successfully
@@ -326,9 +696,9 @@ router.get('/menu', authenticateToken, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/menu', authenticateToken, validateBeverage, async (req, res) => {
+router.post('/menu', authenticateToken, validateMenu, async (req, res) => {
   try {
-    const beverageData = {
+    const menuData = {
       name: req.body.name,
       category: req.body.category,
       base_price: req.body.base_price,
@@ -336,11 +706,11 @@ router.post('/menu', authenticateToken, validateBeverage, async (req, res) => {
       active: req.body.active !== undefined ? req.body.active : true
     };
 
-    const beverage = await Beverage.create(beverageData);
+    const menuItem = await Menu.create(menuData);
 
     res.status(201).json({
       success: true,
-      data: beverage,
+      data: menuItem,
       message: 'Menu item created successfully'
     });
   } catch (error) {
@@ -406,7 +776,7 @@ router.post('/menu', authenticateToken, validateBeverage, async (req, res) => {
  *                   type: boolean
  *                   example: true
  *                 data:
- *                   $ref: '#/components/schemas/Beverage'
+ *                   $ref: '#/components/schemas/MenuItem'
  *                 message:
  *                   type: string
  *                   example: Menu item updated successfully
@@ -429,20 +799,20 @@ router.post('/menu', authenticateToken, validateBeverage, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put('/menu/:id', authenticateToken, validateId, validateBeverage, async (req, res) => {
+router.put('/menu/:id', authenticateToken, validateId, validateMenu, async (req, res) => {
   try {
-    const beverageId = req.params.id;
+    const menuId = req.params.id;
     
-    // Check if beverage exists
-    const existingBeverage = await Beverage.findById(beverageId);
-    if (!existingBeverage) {
+    // Check if menu item exists
+    const existingMenuItem = await Menu.findById(menuId);
+    if (!existingMenuItem) {
       return res.status(404).json({
         success: false,
         error: 'Menu item not found'
       });
     }
 
-    const beverageData = {
+    const menuData = {
       name: req.body.name,
       category: req.body.category,
       base_price: req.body.base_price,
@@ -450,11 +820,11 @@ router.put('/menu/:id', authenticateToken, validateId, validateBeverage, async (
       active: req.body.active !== undefined ? req.body.active : true
     };
 
-    const updatedBeverage = await Beverage.update(beverageId, beverageData);
+    const updatedMenuItem = await Menu.update(menuId, menuData);
 
     res.json({
       success: true,
-      data: updatedBeverage,
+      data: updatedMenuItem,
       message: 'Menu item updated successfully'
     });
   } catch (error) {
@@ -494,7 +864,7 @@ router.put('/menu/:id', authenticateToken, validateId, validateBeverage, async (
  *                   type: boolean
  *                   example: true
  *                 data:
- *                   $ref: '#/components/schemas/Beverage'
+ *                   $ref: '#/components/schemas/MenuItem'
  *                 message:
  *                   type: string
  *                   example: Menu item deleted successfully
@@ -519,11 +889,11 @@ router.put('/menu/:id', authenticateToken, validateId, validateBeverage, async (
  */
 router.delete('/menu/:id', authenticateToken, validateId, async (req, res) => {
   try {
-    const beverageId = req.params.id;
+    const menuId = req.params.id;
     
-    const deletedBeverage = await Beverage.delete(beverageId);
+    const deletedMenuItem = await Menu.delete(menuId);
     
-    if (!deletedBeverage) {
+    if (!deletedMenuItem) {
       return res.status(404).json({
         success: false,
         error: 'Menu item not found'
@@ -532,7 +902,7 @@ router.delete('/menu/:id', authenticateToken, validateId, async (req, res) => {
 
     res.json({
       success: true,
-      data: deletedBeverage,
+      data: deletedMenuItem,
       message: 'Menu item deleted successfully'
     });
   } catch (error) {
@@ -599,20 +969,78 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/test-notification:
+ *   post:
+ *     summary: Send test push notification
+ *     description: Sends a test push notification to FCM tokens associated with the authenticated user. If no user tokens are found, uses the first available token in the system for testing.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/TestNotificationRequest'
+ *     responses:
+ *       200:
+ *         description: Test notification sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: 'Test notification sent'
+ *       400:
+ *         description: No FCM tokens found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // Test notification endpoint (for debugging)
 router.post('/test-notification', authenticateToken, async (req, res) => {
   try {
     const { title, body } = req.body;
-    const user = await AdminUser.findById(req.user.id);
     
-    if (!user.fcm_token) {
-      return res.status(400).json({
-        success: false,
-        error: 'No FCM token found for user'
-      });
+    // Get user's FCM tokens by Firebase UID
+    let userTokens = await FcmToken.findByFirebaseUid(req.user.uid);
+    
+    // Fallback to any available token if user has none
+    if (userTokens.length === 0) {
+      const allTokens = await FcmToken.getAll();
+      if (allTokens.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'No FCM tokens found'
+        });
+      }
+      // Use first available token for testing
+      await NotificationService.testNotification(allTokens[0], title, body);
+    } else {
+      // Use user's first token
+      await NotificationService.testNotification(userTokens[0].token, title, body);
     }
-
-    await NotificationService.testNotification(user.fcm_token, title, body);
     
     res.json({
       success: true,

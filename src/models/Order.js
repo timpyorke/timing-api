@@ -128,6 +128,86 @@ class Order {
     return result.rows[0];
   }
 
+  static async update(id, orderData) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Update order basic info
+      const orderQuery = `
+        UPDATE orders 
+        SET customer_info = $1, total = $2, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $3 
+        RETURNING *
+      `;
+      const orderResult = await client.query(orderQuery, [
+        orderData.customer_info,
+        orderData.total,
+        id
+      ]);
+      
+      if (orderResult.rows.length === 0) {
+        throw new Error('Order not found');
+      }
+      
+      // Delete existing order items
+      await client.query('DELETE FROM order_items WHERE order_id = $1', [id]);
+      
+      // Insert new order items
+      if (orderData.items && orderData.items.length > 0) {
+        for (const item of orderData.items) {
+          const itemQuery = `
+            INSERT INTO order_items (order_id, beverage_id, customizations, quantity, price)
+            VALUES ($1, $2, $3, $4, $5)
+          `;
+          await client.query(itemQuery, [
+            id,
+            item.beverage_id,
+            item.customizations,
+            item.quantity,
+            item.price
+          ]);
+        }
+      }
+      
+      await client.query('COMMIT');
+      return await this.findById(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async delete(id) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Get order before deletion for return value
+      const order = await this.findById(id);
+      if (!order) {
+        return null;
+      }
+      
+      // Delete order items first (due to foreign key constraint)
+      await client.query('DELETE FROM order_items WHERE order_id = $1', [id]);
+      
+      // Delete order
+      const query = 'DELETE FROM orders WHERE id = $1 RETURNING *';
+      const result = await client.query(query, [id]);
+      
+      await client.query('COMMIT');
+      return order; // Return the full order with items
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   static async getTodaySales() {
     const query = `
       SELECT 

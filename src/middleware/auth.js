@@ -1,5 +1,4 @@
-const jwt = require('jsonwebtoken');
-const AdminUser = require('../models/AdminUser');
+const { admin } = require('../config/firebase');
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -10,37 +9,53 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('🔐 Token verification attempt:', {
+      tokenLength: token.length,
+      tokenStart: token.substring(0, 20) + '...',
+      timestamp: new Date().toISOString()
+    });
     
-    // Verify user still exists
-    const user = await AdminUser.findById(decoded.userId);
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid token - user not found' });
-    }
-
+    // Verify Firebase JWT token
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    
+    console.log('✅ Token verified successfully:', {
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+      exp: decodedToken.exp,
+      iat: decodedToken.iat
+    });
+    
+    // Extract user information from Firebase token
     req.user = {
-      id: user.id,
-      username: user.username
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+      email_verified: decodedToken.email_verified
     };
     
     next();
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
+    console.debug('my token:', token);
+    console.error('❌ Firebase token verification error:', {
+      errorCode: error.code,
+      errorMessage: error.message,
+      tokenLength: token ? token.length : 'undefined',
+      timestamp: new Date().toISOString()
+    });
+    
+    if (error.code === 'auth/id-token-expired') {
       return res.status(401).json({ error: 'Token expired' });
     }
-    if (error.name === 'JsonWebTokenError') {
+    if (error.code === 'auth/argument-error' || error.code === 'auth/invalid-id-token') {
       return res.status(401).json({ error: 'Invalid token' });
     }
     return res.status(500).json({ error: 'Token verification failed' });
   }
 };
 
+// Note: Firebase handles token generation on the client side
+// This function is no longer needed for Firebase authentication
 const generateToken = (userId, username) => {
-  return jwt.sign(
-    { userId, username },
-    process.env.JWT_SECRET,
-    { expiresIn: '24h' }
-  );
+  throw new Error('Token generation should be handled by Firebase Auth on the client side');
 };
 
 module.exports = {

@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 
-class Beverage {
+class Menu {
   static async findAll(activeOnly = true) {
     const query = activeOnly 
       ? 'SELECT * FROM beverages WHERE active = true ORDER BY category, name'
@@ -15,23 +15,23 @@ class Beverage {
     return result.rows[0];
   }
 
-  static async create(beverageData) {
+  static async create(menuData) {
     const query = `
       INSERT INTO beverages (name, category, base_price, customizations, active)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `;
     const result = await pool.query(query, [
-      beverageData.name,
-      beverageData.category,
-      beverageData.base_price,
-      beverageData.customizations || {},
-      beverageData.active !== undefined ? beverageData.active : true
+      menuData.name,
+      menuData.category,
+      menuData.base_price,
+      menuData.customizations || {},
+      menuData.active !== undefined ? menuData.active : true
     ]);
     return result.rows[0];
   }
 
-  static async update(id, beverageData) {
+  static async update(id, menuData) {
     const query = `
       UPDATE beverages 
       SET name = $1, category = $2, base_price = $3, customizations = $4, active = $5, updated_at = CURRENT_TIMESTAMP
@@ -39,11 +39,11 @@ class Beverage {
       RETURNING *
     `;
     const result = await pool.query(query, [
-      beverageData.name,
-      beverageData.category,
-      beverageData.base_price,
-      beverageData.customizations || {},
-      beverageData.active,
+      menuData.name,
+      menuData.category,
+      menuData.base_price,
+      menuData.customizations || {},
+      menuData.active,
       id
     ]);
     return result.rows[0];
@@ -77,4 +77,4 @@ class Beverage {
   }
 }
 
-module.exports = Beverage;
+module.exports = Menu;

@@ -7,13 +7,13 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "init-db": "node scripts/init-db.js",
-    "docs": "echo 'API Documentation available at http://localhost:3000/api-docs'",
+    "docs": "echo 'API Documentation available at http://localhost:8000/api-docs'",
     "test": "jest"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "express-rate-limit": "^6.10.0",
     "express-validator": "^7.0.1",

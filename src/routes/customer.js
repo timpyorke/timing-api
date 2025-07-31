@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Beverage = require('../models/Beverage');
+const Menu = require('../models/Menu');
 const Order = require('../models/Order');
 const NotificationService = require('../services/notificationService');
 const { validateOrder, validateId } = require('../middleware/validation');
@@ -42,7 +42,7 @@ const { validateOrder, validateId } = require('../middleware/validation');
  */
 router.get('/menu', async (req, res) => {
   try {
-    const menu = await Beverage.getMenuByCategory();
+    const menu = await Menu.getMenuByCategory();
     res.json({
       success: true,
       data: menu
@@ -105,20 +105,20 @@ router.post('/orders', validateOrder, async (req, res) => {
       total: req.body.total
     };
 
-    // Validate that beverages exist and calculate total
+    // Validate that menu items exist and calculate total
     let calculatedTotal = 0;
     for (const item of orderData.items) {
-      const beverage = await Beverage.findById(item.beverage_id);
-      if (!beverage) {
+      const menuItem = await Menu.findById(item.beverage_id);
+      if (!menuItem) {
         return res.status(400).json({
           success: false,
-          error: `Beverage with ID ${item.beverage_id} not found`
+          error: `Menu item with ID ${item.beverage_id} not found`
         });
       }
-      if (!beverage.active) {
+      if (!menuItem.active) {
         return res.status(400).json({
           success: false,
-          error: `Beverage "${beverage.name}" is currently unavailable`
+          error: `Menu item "${menuItem.name}" is currently unavailable`
         });
       }
       calculatedTotal += parseFloat(item.price) * item.quantity;

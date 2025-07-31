@@ -1,21 +1,14 @@
 const { messaging } = require('../config/firebase');
-const AdminUser = require('../models/AdminUser');
+const FcmToken = require('../models/FcmToken');
 
 class NotificationService {
   static async sendOrderNotification(order) {
     try {
-      // Get all admin FCM tokens
-      const admins = await this.getAllAdminTokens();
-      
-      if (admins.length === 0) {
-        console.log('No admin FCM tokens found');
-        return;
-      }
-
-      const tokens = admins.map(admin => admin.fcm_token).filter(token => token);
+      // Get all FCM tokens
+      const tokens = await FcmToken.getAll();
       
       if (tokens.length === 0) {
-        console.log('No valid FCM tokens found');
+        console.log('No FCM tokens found');
         return;
       }
 
@@ -68,16 +61,13 @@ class NotificationService {
     }
   }
 
-  static async getAllAdminTokens() {
+  static async getAllTokens() {
     // This is a simplified version - in a real app you might want to cache this
     // or implement it differently based on your needs
     try {
-      const pool = require('../config/database');
-      const query = 'SELECT id, fcm_token FROM admin_users WHERE fcm_token IS NOT NULL';
-      const result = await pool.query(query);
-      return result.rows;
+      return await FcmToken.getAll();
     } catch (error) {
-      console.error('Error getting admin tokens:', error);
+      console.error('Error getting FCM tokens:', error);
       return [];
     }
   }

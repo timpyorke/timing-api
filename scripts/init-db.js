@@ -21,8 +21,7 @@ async function initializeDatabase() {
     
     console.log('Database initialized successfully!');
     console.log('Tables created:');
-    console.log('- admin_users');
-    console.log('- beverages');
+    console.log('- menus');
     console.log('- orders');
     console.log('- order_items');
     console.log('');

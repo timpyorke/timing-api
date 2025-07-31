@@ -7,7 +7,7 @@ const options = {
     info: {
       title: 'Timing API',
       version: '1.0.0',
-      description: 'Node.js/Express API for order management with Firebase integration',
+      description: 'Node.js/Express API for order management with Firebase authentication and push notifications',
       contact: {
         name: 'API Support',
         email: 'support@timing-api.com'
@@ -74,7 +74,7 @@ const options = {
             }
           }
         },
-        Beverage: {
+        MenuItem: {
           type: 'object',
           properties: {
             id: {
@@ -117,7 +117,7 @@ const options = {
             items: {
               type: 'array',
               items: {
-                $ref: '#/components/schemas/Beverage'
+                $ref: '#/components/schemas/MenuItem'
               }
             }
           }
@@ -125,7 +125,7 @@ const options = {
         OrderItem: {
           type: 'object',
           properties: {
-            beverage_id: {
+            menu_item_id: {
               type: 'integer',
               example: 1
             },
@@ -147,7 +147,7 @@ const options = {
               }
             }
           },
-          required: ['beverage_id', 'quantity', 'price']
+          required: ['menu_item_id', 'quantity', 'price']
         },
         CustomerInfo: {
           type: 'object',
@@ -235,54 +235,6 @@ const options = {
             }
           }
         },
-        LoginRequest: {
-          type: 'object',
-          properties: {
-            username: {
-              type: 'string',
-              example: 'admin'
-            },
-            password: {
-              type: 'string',
-              format: 'password',
-              example: 'admin123'
-            },
-            fcm_token: {
-              type: 'string',
-              description: 'Firebase Cloud Messaging token for push notifications'
-            }
-          },
-          required: ['username', 'password']
-        },
-        LoginResponse: {
-          type: 'object',
-          properties: {
-            success: {
-              type: 'boolean',
-              example: true
-            },
-            data: {
-              type: 'object',
-              properties: {
-                token: {
-                  type: 'string',
-                  example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
-                },
-                user: {
-                  type: 'object',
-                  properties: {
-                    id: { type: 'integer', example: 1 },
-                    username: { type: 'string', example: 'admin' }
-                  }
-                }
-              }
-            },
-            message: {
-              type: 'string',
-              example: 'Login successful'
-            }
-          }
-        },
         UpdateOrderStatusRequest: {
           type: 'object',
           properties: {
@@ -321,6 +273,111 @@ const options = {
             completion_rate: {
               type: 'string',
               example: '60.0'
+            }
+          }
+        },
+        FcmTokenRequest: {
+          type: 'object',
+          properties: {
+            fcm_token: {
+              type: 'string',
+              description: 'Firebase Cloud Messaging token from client device',
+              example: 'cJ4lN5zGSyq1MKp8mF7wXR:APA91bH2vY6pN8wGq4sL9dF3kXmYe1nR7tUv9cA8bK6hJ5mP2qI4oE7zC3fT1nW9xS8TestToken',
+              minLength: 10
+            }
+          },
+          required: ['fcm_token']
+        },
+        FcmTokenResponse: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true
+            },
+            data: {
+              type: 'object',
+              properties: {
+                token_id: {
+                  type: 'integer',
+                  description: 'Database ID of the stored FCM token',
+                  example: 1
+                },
+                user: {
+                  type: 'object',
+                  properties: {
+                    uid: {
+                      type: 'string',
+                      description: 'Firebase user ID',
+                      example: 'sN9lEvuseyU039vgn2ZpA2Tq6zm2'
+                    },
+                    email: {
+                      type: 'string',
+                      format: 'email',
+                      example: 'timing.2025@gmail.com'
+                    },
+                    email_verified: {
+                      type: 'boolean',
+                      example: false
+                    }
+                  }
+                }
+              }
+            },
+            message: {
+              type: 'string',
+              example: 'FCM token stored successfully'
+            }
+          }
+        },
+        TestNotificationRequest: {
+          type: 'object',
+          properties: {
+            title: {
+              type: 'string',
+              description: 'Notification title',
+              example: 'Test Notification'
+            },
+            body: {
+              type: 'string',
+              description: 'Notification body text',
+              example: 'This is a test notification from the API'
+            }
+          }
+        },
+        DebugTokenResponse: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true
+            },
+            message: {
+              type: 'string',
+              example: 'Token is valid'
+            },
+            user: {
+              type: 'object',
+              properties: {
+                uid: {
+                  type: 'string',
+                  example: 'sN9lEvuseyU039vgn2ZpA2Tq6zm2'
+                },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                  example: 'timing.2025@gmail.com'
+                },
+                email_verified: {
+                  type: 'boolean',
+                  example: false
+                }
+              }
+            },
+            timestamp: {
+              type: 'string',
+              format: 'date-time',
+              example: '2025-07-31T13:22:47.017Z'
             }
           }
         }
