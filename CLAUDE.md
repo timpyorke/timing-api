@@ -40,7 +40,7 @@ Password: admin123
 
 ## Environment Configuration
 ```env
-PORT=3000
+PORT=8000
 NODE_ENV=development
 DATABASE_URL="postgresql://postgres:Timing%24upabase@db.kzerorfeuabowkimywnf.supabase.co:5432/postgres"
 JWT_SECRET=timing_api_jwt_secret_key_2024_secure_random_string_for_production
@@ -48,7 +48,7 @@ JWT_SECRET=timing_api_jwt_secret_key_2024_secure_random_string_for_production
 # Firebase Admin SDK
 FIREBASE_PROJECT_ID="timing-505f2"
 FIREBASE_PRIVATE_KEY_ID="32c82f88d1bde7c5b6fa2f88881e165be4fe94ff"
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----"..."
 FIREBASE_CLIENT_EMAIL="firebase-adminsdk-fbsvc@timing-505f2.iam.gserviceaccount.com"
 FIREBASE_CLIENT_ID="112253221953466838180"
 ```
@@ -63,7 +63,7 @@ npm run docs        # Show API documentation URL
 ```
 
 ## API Documentation
-- **Swagger UI**: Available at `http://localhost:3000/api-docs`
+- **Swagger UI**: Available at `http://localhost:8000/api-docs`
 - **Interactive testing**: All endpoints can be tested directly from Swagger UI
 - **Schema validation**: Complete request/response schemas documented
 - **Authentication**: JWT Bearer token authentication documented
@@ -133,24 +133,24 @@ src/
 ## Testing Endpoints
 ```bash
 # Health check
-curl http://localhost:3000/health
+curl http://localhost:8000/health
 
 # Get menu
-curl http://localhost:3000/api/menu
+curl http://localhost:8000/api/menu
 
 # Create order
-curl -X POST http://localhost:3000/api/orders \
+curl -X POST http://localhost:8000/api/orders \
   -H "Content-Type: application/json" \
   -d '{"customer_info":{"name":"John"},"items":[{"beverage_id":1,"quantity":1,"price":3.50}],"total":3.50}'
 
 # Admin login
-curl -X POST http://localhost:3000/api/admin/login \
+curl -X POST http://localhost:8000/api/admin/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}'
 ```
 
 ## Production Deployment Notes
-- Server runs on port 3000 by default
+- Server runs on port 8000 by default
 - Requires valid Supabase database connection
 - Firebase service account key needed for notifications
 - JWT_SECRET should be cryptographically secure

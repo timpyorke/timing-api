@@ -6,7 +6,7 @@
 [![Express](https://img.shields.io/badge/Express-4.18+-blue.svg)](https://expressjs.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue.svg)](https://postgresql.org/)
 [![Firebase](https://img.shields.io/badge/Firebase-Admin%20SDK-orange.svg)](https://firebase.google.com/)
-[![Swagger](https://img.shields.io/badge/API%20Docs-Swagger-green.svg)](http://localhost:3000/api-docs)
+[![Swagger](https://img.shields.io/badge/API%20Docs-Swagger-green.svg)](http://localhost:8000/api-docs)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 🚀 Overview
@@ -72,7 +72,7 @@ nano .env
 **Required Environment Variables:**
 ```env
 # Server Configuration
-PORT=3000
+PORT=8000
 NODE_ENV=development
 
 # Database (Supabase)
@@ -120,15 +120,15 @@ npm run docs
 ```
 
 **🎉 Your API is now running at:**
-- **API Server**: http://localhost:3000
-- **Interactive Docs**: http://localhost:3000/api-docs
-- **Health Check**: http://localhost:3000/health
+- **API Server**: http://localhost:8000
+- **Interactive Docs**: http://localhost:8000/api-docs
+- **Health Check**: http://localhost:8000/health
 
 ## 📚 API Documentation
 
 ### 🌐 Interactive Documentation
 Access the complete API documentation with live testing at:
-**[http://localhost:3000/api-docs](http://localhost:3000/api-docs)**
+**[http://localhost:8000/api-docs](http://localhost:8000/api-docs)**
 
 ### 📖 Documentation Files
 | File | Description |
@@ -306,7 +306,7 @@ node check-admin-fcm.js
 node update-admin-fcm.js
 
 # Health check
-curl http://localhost:3000/health
+curl http://localhost:8000/health
 ```
 
 ## 📈 Production Deployment
@@ -350,6 +350,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **🍵 Built with ❤️ for coffee lovers everywhere**
 
-[Documentation](http://localhost:3000/api-docs) • [Support](mailto:support@timing-api.com) • [License](LICENSE)
+[Documentation](http://localhost:8000/api-docs) • [Support](mailto:support@timing-api.com) • [License](LICENSE)
 
 </div>
