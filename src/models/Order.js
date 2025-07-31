@@ -23,12 +23,12 @@ class Order {
       // Insert order items
       for (const item of orderData.items) {
         const itemQuery = `
-          INSERT INTO order_items (order_id, beverage_id, customizations, quantity, price)
+          INSERT INTO order_items (order_id, menu_id, customizations, quantity, price)
           VALUES ($1, $2, $3, $4, $5)
         `;
         await client.query(itemQuery, [
           order.id,
-          item.beverage_id,
+          item.menu_id,
           item.customizations,
           item.quantity,
           item.price
@@ -53,7 +53,7 @@ class Order {
           json_agg(
             json_build_object(
               'id', oi.id,
-              'beverage_id', oi.beverage_id,
+              'menu_id', oi.menu_id,
               'beverage_name', b.name,
               'customizations', oi.customizations,
               'quantity', oi.quantity,
@@ -64,7 +64,7 @@ class Order {
         ) as items
       FROM orders o
       LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN beverages b ON oi.beverage_id = b.id
+      LEFT JOIN menus b ON oi.menu_id = b.id
       WHERE o.id = $1
       GROUP BY o.id
     `;
@@ -80,7 +80,7 @@ class Order {
           json_agg(
             json_build_object(
               'id', oi.id,
-              'beverage_id', oi.beverage_id,
+              'menu_id', oi.menu_id,
               'beverage_name', b.name,
               'customizations', oi.customizations,
               'quantity', oi.quantity,
@@ -91,7 +91,7 @@ class Order {
         ) as items
       FROM orders o
       LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN beverages b ON oi.beverage_id = b.id
+      LEFT JOIN menus b ON oi.menu_id = b.id
     `;
     
     const conditions = [];
@@ -157,12 +157,12 @@ class Order {
       if (orderData.items && orderData.items.length > 0) {
         for (const item of orderData.items) {
           const itemQuery = `
-            INSERT INTO order_items (order_id, beverage_id, customizations, quantity, price)
+            INSERT INTO order_items (order_id, menu_id, customizations, quantity, price)
             VALUES ($1, $2, $3, $4, $5)
           `;
           await client.query(itemQuery, [
             id,
-            item.beverage_id,
+            item.menu_id,
             item.customizations,
             item.quantity,
             item.price

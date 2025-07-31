@@ -27,7 +27,7 @@ async function initializeDatabase() {
     console.log('');
     console.log('Sample data inserted:');
     console.log('- Admin user: username=admin, password=admin123');
-    console.log('- Sample beverages with customizations');
+    console.log('- Sample menus with customizations');
     
   } catch (error) {
     console.error('Error initializing database:', error);
