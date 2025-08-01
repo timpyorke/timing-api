@@ -1186,24 +1186,29 @@ router.post('/test-notification', authenticateToken, async (req, res) => {
   try {
     const { title, body } = req.body;
     
-    // Get user's FCM tokens by Firebase UID
-    let userTokens = await FcmToken.findByFirebaseUid(req.user.uid);
+    // Get user's FCM tokens by Firebase UID or admin tokens
+    let userTokens = [];
     
-    // Fallback to any available token if user has none
-    if (userTokens.length === 0) {
-      const allTokens = await FcmToken.getAll();
-      if (allTokens.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'No FCM tokens found'
-        });
-      }
-      // Use first available token for testing
-      await NotificationService.testNotification(allTokens[0], title, body);
+    // Check if user is admin (JWT token) or Firebase user
+    if (req.user.role === 'admin') {
+      // For admin users, get all available tokens since admin can test all devices
+      userTokens = await FcmToken.getAll();
     } else {
-      // Use user's first token
-      await NotificationService.testNotification(userTokens[0].token, title, body);
+      // For Firebase users, get their specific tokens
+      userTokens = await FcmToken.findByFirebaseUid(req.user.uid);
     }
+    
+    // Fallback if no tokens found
+    if (userTokens.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No FCM tokens found'
+      });
+    }
+    
+    // Use first available token for testing
+    const tokenToUse = Array.isArray(userTokens) ? userTokens[0] : userTokens[0].token;
+    await NotificationService.testNotification(tokenToUse, title, body);
     
     res.json({
       success: true,
