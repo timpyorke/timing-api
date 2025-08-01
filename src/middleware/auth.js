@@ -12,12 +12,25 @@ const authenticateToken = async (req, res, next) => {
   try {
     // First try JWT token (for admin login)
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'timing_api_jwt_secret_key_2024_secure_random_string_for_production', { algorithm: 'HS256' });
-      req.user = decoded;
-      return next();
+      // Try to decode without verification first to check algorithm
+      const decoded = jwt.decode(token, { complete: true });
+      
+      if (decoded && decoded.header && decoded.header.alg) {
+        const algorithm = decoded.header.alg;
+        let secret = process.env.JWT_SECRET || 'timing_api_jwt_secret_key_2024_secure_random_string_for_production';
+        
+        // Handle different algorithms
+        if (algorithm === 'RS256' && process.env.JWT_PUBLIC_KEY) {
+          secret = process.env.JWT_PUBLIC_KEY;
+        }
+        
+        const verifiedToken = jwt.verify(token, secret, { algorithm });
+        req.user = verifiedToken;
+        return next();
+      }
     } catch (jwtError) {
       // If JWT fails, try Firebase token
-      console.log('🔐 JWT failed, trying Firebase token verification');
+      console.log('🔐 JWT failed, trying Firebase token verification:', jwtError.message);
     }
     
     console.log('🔐 Firebase token verification attempt:', {
