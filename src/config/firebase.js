@@ -1,11 +1,29 @@
 const admin = require('firebase-admin');
 
+// Fix Firebase private key formatting
+const formatFirebasePrivateKey = (key) => {
+  if (!key) return "";
+  
+  // Replace literal \n with actual newlines
+  let formattedKey = key.replace(/\\n/g, '\n');
+  
+  // Ensure proper header/footer format
+  if (!formattedKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
+    formattedKey = '-----BEGIN PRIVATE KEY-----\n' + formattedKey;
+  }
+  if (!formattedKey.endsWith('-----END PRIVATE KEY-----')) {
+    formattedKey = formattedKey + '\n-----END PRIVATE KEY-----';
+  }
+  
+  return formattedKey;
+};
+
 // Initialize Firebase Admin SDK
 const serviceAccount = {
   type: "service_account",
   project_id: process.env.FIREBASE_PROJECT_ID,
   private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') || "",
+  private_key: formatFirebasePrivateKey(process.env.FIREBASE_PRIVATE_KEY),
   client_email: process.env.FIREBASE_CLIENT_EMAIL,
   client_id: process.env.FIREBASE_CLIENT_ID,
   auth_uri: process.env.FIREBASE_AUTH_URI || "https://accounts.google.com/o/oauth2/auth",
@@ -30,8 +48,19 @@ if (missingVars.length > 0) {
 }
 
 // Validate private key format
-if (process.env.FIREBASE_PRIVATE_KEY && !process.env.FIREBASE_PRIVATE_KEY.includes('BEGIN PRIVATE KEY')) {
-  console.error('❌ FIREBASE_PRIVATE_KEY appears to be in wrong format. Should start with "-----BEGIN PRIVATE KEY-----"');
+if (process.env.FIREBASE_PRIVATE_KEY) {
+  const formattedKey = formatFirebasePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+  console.log('🔑 Firebase private key format check:');
+  console.log('- Key length:', formattedKey.length);
+  console.log('- Starts correctly:', formattedKey.startsWith('-----BEGIN PRIVATE KEY-----'));
+  console.log('- Ends correctly:', formattedKey.endsWith('-----END PRIVATE KEY-----'));
+  console.log('- First 50 chars:', formattedKey.substring(0, 50));
+  
+  if (!formattedKey.includes('BEGIN PRIVATE KEY')) {
+    console.error('❌ FIREBASE_PRIVATE_KEY appears to be in wrong format');
+  }
+} else {
+  console.error('❌ FIREBASE_PRIVATE_KEY is missing');
 }
 
 if (!admin.apps.length) {
