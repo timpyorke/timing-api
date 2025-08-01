@@ -56,6 +56,7 @@ class Order {
               'id', oi.id,
               'menu_id', oi.menu_id,
               'menu_name', b.name,
+              'image_url', b.image_url,
               'customizations', oi.customizations,
               'quantity', oi.quantity,
               'price', oi.price
@@ -83,6 +84,7 @@ class Order {
               'id', oi.id,
               'menu_id', oi.menu_id,
               'menu_name', b.name,
+              'image_url', b.image_url,
               'customizations', oi.customizations,
               'quantity', oi.quantity,
               'price', oi.price
@@ -203,7 +205,7 @@ class Order {
       
       // Delete order
       const query = 'DELETE FROM orders WHERE id = $1 RETURNING *';
-      const result = await client.query(query, [id]);
+      await client.query(query, [id]);
       
       await client.query('COMMIT');
       return order; // Return the full order with items

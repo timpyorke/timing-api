@@ -21,6 +21,7 @@
     "firebase-admin": "^11.11.1",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
+    "memory-cache": "^0.2.0",
     "pg": "^8.11.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"

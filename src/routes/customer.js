@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
+const cache = require('memory-cache');
 const Menu = require('../models/Menu');
 const Order = require('../models/Order');
 const NotificationService = require('../services/notificationService');
 const { validateOrder, validateId } = require('../middleware/validation');
+
+const CACHE_KEY = 'full-menu';
+const CACHE_TIME_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * @swagger
@@ -42,7 +46,18 @@ const { validateOrder, validateId } = require('../middleware/validation');
  */
 router.get('/menu', async (req, res) => {
   try {
+    const cachedMenu = cache.get(CACHE_KEY);
+    if (cachedMenu) {
+      return res.json({
+        success: true,
+        data: cachedMenu,
+        fromCache: true
+      });
+    }
+
     const menu = await Menu.getMenuByCategory();
+    cache.put(CACHE_KEY, menu, CACHE_TIME_MS);
+
     res.json({
       success: true,
       data: menu
@@ -178,9 +193,16 @@ router.post('/orders', validateOrder, async (req, res) => {
     };
 
     // Validate that menu items exist and calculate total
+    const itemIds = orderData.items.map(item => item.menu_id);
+    const menuItems = await Menu.findByIds(itemIds);
+    const menuItemsById = menuItems.reduce((acc, item) => {
+      acc[item.id] = item;
+      return acc;
+    }, {});
+
     let calculatedTotal = 0;
     for (const item of orderData.items) {
-      const menuItem = await Menu.findById(item.menu_id);
+      const menuItem = menuItemsById[item.menu_id];
       if (!menuItem) {
         return res.status(400).json({
           success: false,
