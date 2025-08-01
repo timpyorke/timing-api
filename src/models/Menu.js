@@ -15,6 +15,12 @@ class Menu {
     return result.rows[0];
   }
 
+  static async findByIds(ids) {
+    const query = 'SELECT * FROM menus WHERE id = ANY($1::int[])';
+    const result = await pool.query(query, [ids]);
+    return result.rows;
+  }
+
   static async create(menuData) {
     const query = `
       INSERT INTO menus (name, category, base_price, image_url, customizations, active)
