@@ -14,13 +14,21 @@ const authenticateToken = async (req, res, next) => {
     try {
       // Try to decode without verification first to check algorithm
       const decoded = jwt.decode(token, { complete: true });
+      console.log('🔐 Token algorithm detected:', decoded?.header?.alg);
       
       if (decoded && decoded.header && decoded.header.alg) {
         const algorithm = decoded.header.alg;
-        let secret = process.env.JWT_SECRET || 'timing_api_jwt_secret_key_2024_secure_random_string_for_production';
+        
+        // Skip RS256 tokens if we don't have the public key
+        if (algorithm === 'RS256' && !process.env.JWT_PUBLIC_KEY) {
+          console.log('🔐 RS256 token detected but no JWT_PUBLIC_KEY provided, skipping to Firebase');
+          throw new Error('RS256 requires public key');
+        }
+        
+        let secret = process.env.JWT_SECRET || '+u2ciMTO4QgMOtQeKUCe1AbOisCHDnHCuX59v+Aofgg=';
         
         // Handle different algorithms
-        if (algorithm === 'RS256' && process.env.JWT_PUBLIC_KEY) {
+        if (algorithm === 'RS256') {
           secret = process.env.JWT_PUBLIC_KEY;
         }
         
@@ -77,7 +85,15 @@ const authenticateToken = async (req, res, next) => {
 };
 
 const generateToken = (payload) => {
-  return jwt.sign(payload, process.env.JWT_SECRET || 'timing_api_jwt_secret_key_2024_secure_random_string_for_production', {
+  // Use RS256 if private key is available, otherwise fall back to HS256
+  if (process.env.JWT_PRIVATE_KEY) {
+    return jwt.sign(payload, process.env.JWT_PRIVATE_KEY, {
+      expiresIn: '24h',
+      algorithm: 'RS256'
+    });
+  }
+  
+  return jwt.sign(payload, process.env.JWT_SECRET || '+u2ciMTO4QgMOtQeKUCe1AbOisCHDnHCuX59v+Aofgg=', {
     expiresIn: '24h',
     algorithm: 'HS256'
   });
