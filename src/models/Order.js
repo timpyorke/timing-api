@@ -8,11 +8,12 @@ class Order {
       
       // Insert order
       const orderQuery = `
-        INSERT INTO orders (customer_info, status, total)
-        VALUES ($1, $2, $3)
+        INSERT INTO orders (customer_id, customer_info, status, total)
+        VALUES ($1, $2, $3, $4)
         RETURNING *
       `;
       const orderResult = await client.query(orderQuery, [
+        orderData.customer_id || null,
         orderData.customer_info,
         'pending',
         orderData.total
@@ -107,6 +108,11 @@ class Order {
       values.push(filters.date);
     }
     
+    if (filters.customer_id) {
+      conditions.push(`o.customer_id = $${values.length + 1}`);
+      values.push(filters.customer_id);
+    }
+    
     if (conditions.length > 0) {
       query += ` WHERE ${conditions.join(' AND ')}`;
     }
@@ -136,11 +142,12 @@ class Order {
       // Update order basic info
       const orderQuery = `
         UPDATE orders 
-        SET customer_info = $1, total = $2, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $3 
+        SET customer_id = $1, customer_info = $2, total = $3, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $4 
         RETURNING *
       `;
       const orderResult = await client.query(orderQuery, [
+        orderData.customer_id || null,
         orderData.customer_info,
         orderData.total,
         id

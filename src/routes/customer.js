@@ -58,6 +58,77 @@ router.get('/menu', async (req, res) => {
 
 /**
  * @swagger
+ * /api/menu/{id}:
+ *   get:
+ *     summary: Get a specific menu item by ID
+ *     tags: [Customer]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Menu item ID
+ *     responses:
+ *       200:
+ *         description: Menu item retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/MenuItem'
+ *       404:
+ *         description: Menu item not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/menu/:id', validateId, async (req, res) => {
+  try {
+    const menuItem = await Menu.findById(req.params.id);
+    
+    if (!menuItem) {
+      return res.status(404).json({
+        success: false,
+        error: 'Menu item not found'
+      });
+    }
+
+    // Only return active menu items to customers
+    if (!menuItem.active) {
+      return res.status(404).json({
+        success: false,
+        error: 'Menu item not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: menuItem
+    });
+  } catch (error) {
+    console.error('Error fetching menu item:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch menu item'
+    });
+  }
+});
+
+/**
+ * @swagger
  * /api/orders:
  *   post:
  *     summary: Create a new order
@@ -100,6 +171,7 @@ router.get('/menu', async (req, res) => {
 router.post('/orders', validateOrder, async (req, res) => {
   try {
     const orderData = {
+      customer_id: req.body.customer_id,
       customer_info: req.body.customer_info,
       items: req.body.items,
       total: req.body.total
@@ -224,6 +296,58 @@ router.get('/orders/:id/status', validateId, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch order status'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/orders/customer/{customer_id}:
+ *   get:
+ *     summary: Get all orders for a specific customer
+ *     tags: [Customer]
+ *     parameters:
+ *       - in: path
+ *         name: customer_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer ID
+ *     responses:
+ *       200:
+ *         description: Customer orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Order'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/orders/customer/:customer_id', async (req, res) => {
+  try {
+    const orders = await Order.findAll({ customer_id: req.params.customer_id });
+    
+    res.json({
+      success: true,
+      data: orders
+    });
+  } catch (error) {
+    console.error('Error fetching customer orders:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch customer orders'
     });
   }
 });

@@ -22,7 +22,7 @@ class NotificationService {
           order_id: order.id.toString(),
           customer_name: order.customer_info.name || 'Customer',
           total: order.total.toString(),
-          created_at: order.created_at
+          created_at: order.created_at ? order.created_at.toString() : new Date().toISOString()
         },
         tokens: tokens
       };

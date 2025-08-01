@@ -26,6 +26,7 @@ CREATE TABLE menus (
 -- Orders table
 CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
+    customer_id VARCHAR(100),
     customer_info JSONB NOT NULL,
     status VARCHAR(20) DEFAULT 'pending',
     total DECIMAL(10,2) NOT NULL,
@@ -47,6 +48,7 @@ CREATE TABLE order_items (
 -- Create indexes for better performance
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_orders_created_at ON orders(created_at);
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX idx_menus_category ON menus(category);
 CREATE INDEX idx_menus_active ON menus(active);
 CREATE INDEX idx_order_items_order_id ON order_items(order_id);
