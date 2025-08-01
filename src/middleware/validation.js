@@ -15,7 +15,7 @@ const handleValidationErrors = (req, res, next) => {
 const validateOrder = [
   body('customer_info').isObject().withMessage('Customer info must be an object'),
   body('customer_info.name').notEmpty().withMessage('Customer name is required'),
-  body('customer_info.phone').optional().isMobilePhone().withMessage('Invalid phone number'),
+  body('customer_info.phone').optional().matches(/^[+]?[\d\s\-\(\)]{7,20}$/).withMessage('Invalid phone number format'),
   body('items').isArray({ min: 1 }).withMessage('Order must contain at least one item'),
   body('items.*.menu_id').isInt({ min: 1 }).withMessage('Valid menu ID required'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
@@ -30,7 +30,12 @@ const validateMenu = [
   body('name').notEmpty().withMessage('Menu item name is required'),
   body('category').notEmpty().withMessage('Category is required'),
   body('base_price').isFloat({ min: 0 }).withMessage('Base price must be a positive number'),
-  body('image_url').optional().isURL().withMessage('Image URL must be a valid URL'),
+  body('image_url').optional().custom((value) => {
+    if (value === null || value === '' || value === undefined) {
+      return true;
+    }
+    return /^https?:\/\/.+/.test(value);
+  }).withMessage('Image URL must be a valid URL or empty'),
   body('customizations').optional().isObject().withMessage('Customizations must be an object'),
   body('active').optional().isBoolean().withMessage('Active must be a boolean'),
   handleValidationErrors
