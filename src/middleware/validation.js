@@ -30,16 +30,9 @@ const validateMenu = [
   body('name').notEmpty().withMessage('Menu item name is required'),
   body('category').notEmpty().withMessage('Category is required'),
   body('base_price').isFloat({ min: 0 }).withMessage('Base price must be a positive number'),
+  body('image_url').optional().isURL().withMessage('Image URL must be a valid URL'),
   body('customizations').optional().isObject().withMessage('Customizations must be an object'),
   body('active').optional().isBoolean().withMessage('Active must be a boolean'),
-  handleValidationErrors
-];
-
-// Login validation
-const validateLogin = [
-  body('username').notEmpty().withMessage('Username is required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('fcm_token').optional().isString().withMessage('FCM token must be a string'),
   handleValidationErrors
 ];
 
@@ -61,6 +54,14 @@ const validateFcmToken = [
   body('fcm_token').notEmpty().withMessage('FCM token is required')
     .isString().withMessage('FCM token must be a string')
     .isLength({ min: 10 }).withMessage('FCM token is too short'),
+  handleValidationErrors
+];
+
+// Login validation
+const validateLogin = [
+  body('username').notEmpty().withMessage('Username is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('fcm_token').optional().isString().withMessage('FCM token must be a string'),
   handleValidationErrors
 ];
 

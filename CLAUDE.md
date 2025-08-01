@@ -1,9 +1,11 @@
 # Timing API - Claude Development Context
 
 ## Project Overview
+
 Node.js/Express API for order management system with Firebase push notifications and PostgreSQL database integration via Supabase.
 
 ## Architecture
+
 - **Backend**: Node.js with Express.js framework
 - **Database**: PostgreSQL via Supabase
 - **Authentication**: JWT for admin users
@@ -11,17 +13,13 @@ Node.js/Express API for order management system with Firebase push notifications
 - **Security**: Helmet, CORS, rate limiting, input validation
 
 ## Database Schema
-```sql
+
+````sql
 -- Core tables
 - admin_users: Admin authentication with FCM tokens
-- beverages: Menu items with customizations
-- orders: Customer orders with status tracking  
+- menus: Menu items with customizations and image URLs
+- orders: Customer orders with status tracking
 - order_items: Individual items within orders
-
--- Sample admin credentials
-Username: admin
-Password: admin123
-```
 
 ## API Endpoints
 
@@ -31,7 +29,6 @@ Password: admin123
 - `GET /api/orders/:id/status` - Check order status
 
 ### Admin Endpoints (JWT Required)
-- `POST /api/admin/login` - Admin authentication
 - `GET /api/admin/orders` - All orders with filters (status, date)
 - `PUT /api/admin/orders/:id/status` - Update order status
 - `GET/POST/PUT/DELETE /api/admin/menu` - Full menu CRUD
@@ -43,7 +40,6 @@ Password: admin123
 PORT=8000
 NODE_ENV=development
 DATABASE_URL="postgresql://postgres:Timing%24upabase@db.kzerorfeuabowkimywnf.supabase.co:5432/postgres"
-JWT_SECRET=timing_api_jwt_secret_key_2024_secure_random_string_for_production
 
 # Firebase Admin SDK
 FIREBASE_PROJECT_ID="timing-505f2"
@@ -51,9 +47,10 @@ FIREBASE_PRIVATE_KEY_ID="32c82f88d1bde7c5b6fa2f88881e165be4fe94ff"
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----"..."
 FIREBASE_CLIENT_EMAIL="firebase-adminsdk-fbsvc@timing-505f2.iam.gserviceaccount.com"
 FIREBASE_CLIENT_ID="112253221953466838180"
-```
+````
 
 ## Development Commands
+
 ```bash
 npm install          # Install dependencies
 npm run dev         # Start development server with nodemon
@@ -63,6 +60,7 @@ npm run docs        # Show API documentation URL
 ```
 
 ## API Documentation
+
 - **Swagger UI**: Available at `http://localhost:8000/api-docs`
 - **Interactive testing**: All endpoints can be tested directly from Swagger UI
 - **Schema validation**: Complete request/response schemas documented
@@ -71,6 +69,7 @@ npm run docs        # Show API documentation URL
 ## Current Status
 
 ### ✅ Completed Features
+
 - Express server with security middleware
 - All API endpoints implemented with validation
 - Firebase Admin SDK integration for notifications
@@ -78,26 +77,31 @@ npm run docs        # Show API documentation URL
 - PostgreSQL models and schema
 - Real database integration with PostgreSQL
 - Error handling and logging
+- Menu image URL support with validation
 
 ### ✅ Production Ready
+
 - **Database Connection**: Working with Supabase production pooler
 - **All endpoints tested and functional**
 - **Admin authentication working with JWT**
 - **Firebase notifications configured and ready**
 
 ### 🔧 Database Connection
+
 - **Working Connection**: `aws-0-ap-southeast-1.pooler.supabase.com:6543`
 - **Password**: `Timing$upabase` (URL encoded as `Timing%24upabase`)
 - **SSL**: Required with `rejectUnauthorized: false`
 - **Admin Credentials**: `username: admin`, `password: admin123`
 
 ## Firebase Integration
+
 - Configured for push notifications to admin devices
 - Sends notifications when new orders are created
 - Supports multiple admin devices via FCM tokens
 - Includes order details in notification payload
 
 ## Security Features
+
 - Helmet.js for security headers
 - CORS configuration
 - Rate limiting (100 requests per 15 minutes)
@@ -106,6 +110,7 @@ npm run docs        # Show API documentation URL
 - Password hashing with bcryptjs
 
 ## File Structure
+
 ```
 src/
 ├── config/
@@ -115,8 +120,8 @@ src/
 │   ├── auth.js         # JWT authentication
 │   └── validation.js   # Input validation rules
 ├── models/
-│   ├── AdminUser.js    # Admin user operations
-│   ├── Beverage.js     # Menu item operations
+│   ├── FcmToken.js     # FCM token operations
+│   ├── Menu.js         # Menu item operations with image URL support
 │   ├── Order.js        # Order management
 │   └── database.sql    # Database schema
 ├── routes/
@@ -131,6 +136,7 @@ src/
 ```
 
 ## Testing Endpoints
+
 ```bash
 # Health check
 curl http://localhost:8000/health
@@ -141,13 +147,13 @@ curl http://localhost:8000/api/menu
 # Create order
 curl -X POST http://localhost:8000/api/orders \
   -H "Content-Type: application/json" \
-  -d '{"customer_info":{"name":"John"},"items":[{"beverage_id":1,"quantity":1,"price":3.50}],"total":3.50}'
+  -d '{"customer_info":{"name":"John"},"items":[{"menu_id":1,"quantity":1,"price":3.50}],"total":3.50}'
 
-# Admin login
-curl -X POST http://localhost:8000/api/admin/login \
+# Create menu item with image URL (requires JWT token)
+curl -X POST http://localhost:8000/api/admin/menu \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
-```
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{"name":"Cappuccino","category":"Coffee","base_price":4.50,"image_url":"https://example.com/cappuccino.jpg","customizations":{"sizes":["Small","Medium","Large"]},"active":true}'
 
 ## Production Deployment Notes
 - Server runs on port 8000 by default
@@ -167,3 +173,4 @@ When working on this project:
 6. Follow existing code patterns and conventions
 7. Run `npm run dev` to start development server
 8. Database schema is in `src/models/database.sql`
+```

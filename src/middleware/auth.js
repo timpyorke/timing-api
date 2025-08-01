@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken');
 const { admin } = require('../config/firebase');
 
 const authenticateToken = async (req, res, next) => {
@@ -9,7 +10,17 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    console.log('🔐 Token verification attempt:', {
+    // First try JWT token (for admin login)
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'timing_api_jwt_secret_key_2024_secure_random_string_for_production');
+      req.user = decoded;
+      return next();
+    } catch (jwtError) {
+      // If JWT fails, try Firebase token
+      console.log('🔐 JWT failed, trying Firebase token verification');
+    }
+    
+    console.log('🔐 Firebase token verification attempt:', {
       tokenLength: token.length,
       tokenStart: token.substring(0, 20) + '...',
       timestamp: new Date().toISOString()
@@ -18,7 +29,7 @@ const authenticateToken = async (req, res, next) => {
     // Verify Firebase JWT token
     const decodedToken = await admin.auth().verifyIdToken(token);
     
-    console.log('✅ Token verified successfully:', {
+    console.log('✅ Firebase token verified successfully:', {
       uid: decodedToken.uid,
       email: decodedToken.email,
       exp: decodedToken.exp,
@@ -35,7 +46,7 @@ const authenticateToken = async (req, res, next) => {
     next();
   } catch (error) {
     console.debug('my token:', token);
-    console.error('❌ Firebase token verification error:', {
+    console.error('❌ Token verification error:', {
       errorCode: error.code,
       errorMessage: error.message,
       tokenLength: token ? token.length : 'undefined',
@@ -48,14 +59,14 @@ const authenticateToken = async (req, res, next) => {
     if (error.code === 'auth/argument-error' || error.code === 'auth/invalid-id-token') {
       return res.status(401).json({ error: 'Invalid token' });
     }
-    return res.status(500).json({ error: 'Token verification failed' });
+    return res.status(401).json({ error: 'Invalid token' });
   }
 };
 
-// Note: Firebase handles token generation on the client side
-// This function is no longer needed for Firebase authentication
-const generateToken = (userId, username) => {
-  throw new Error('Token generation should be handled by Firebase Auth on the client side');
+const generateToken = (payload) => {
+  return jwt.sign(payload, process.env.JWT_SECRET || 'timing_api_jwt_secret_key_2024_secure_random_string_for_production', {
+    expiresIn: '24h'
+  });
 };
 
 module.exports = {

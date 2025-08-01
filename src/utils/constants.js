@@ -30,7 +30,6 @@ const ERROR_MESSAGES = {
 const SUCCESS_MESSAGES = {
   ORDER_CREATED: 'Order created successfully',
   ORDER_UPDATED: 'Order updated successfully',
-  LOGIN_SUCCESS: 'Login successful',
   MENU_ITEM_CREATED: 'Menu item created successfully',
   MENU_ITEM_UPDATED: 'Menu item updated successfully',
   MENU_ITEM_DELETED: 'Menu item deleted successfully'

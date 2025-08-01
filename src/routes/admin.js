@@ -7,9 +7,9 @@ const NotificationService = require('../services/notificationService');
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const pool = require('../config/database');
 const { 
-  validateLogin, 
   validateOrderStatus, 
   validateMenu, 
+  validateLogin,
   validateId,
   validateFcmToken 
 } = require('../middleware/validation');
@@ -20,6 +20,101 @@ const {
  *   name: Admin
  *   description: Admin-only API endpoints (requires authentication)
  */
+
+/**
+ * @swagger
+ * /api/admin/login:
+ *   post:
+ *     summary: Admin login
+ *     description: Authenticate admin user and return JWT token
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: admin
+ *               password:
+ *                 type: string
+ *                 example: admin123
+ *               fcm_token:
+ *                 type: string
+ *                 description: Optional FCM token for push notifications
+ *             required: [username, password]
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 token:
+ *                   type: string
+ *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                 message:
+ *                   type: string
+ *                   example: Login successful
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/login', validateLogin, async (req, res) => {
+  try {
+    const { username, password, fcm_token } = req.body;
+    
+    // Simple hardcoded admin authentication (replace with database lookup in production)
+    if (username === 'admin' && password === 'admin123') {
+      // Generate JWT token
+      const payload = { 
+        username: 'admin', 
+        role: 'admin',
+        uid: 'admin-uid-12345'
+      };
+      const token = generateToken(payload);
+      
+      // Store FCM token if provided
+      if (fcm_token) {
+        try {
+          await FcmToken.store(fcm_token, payload.uid, {
+            userAgent: req.headers['user-agent'],
+            ip: req.ip,
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error('Error storing FCM token:', error);
+        }
+      }
+      
+      res.json({
+        success: true,
+        token,
+        message: 'Login successful'
+      });
+    } else {
+      res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Login failed'
+    });
+  }
+});
 
 /**
  * @swagger
@@ -702,6 +797,7 @@ router.post('/menu', authenticateToken, validateMenu, async (req, res) => {
       name: req.body.name,
       category: req.body.category,
       base_price: req.body.base_price,
+      image_url: req.body.image_url || null,
       customizations: req.body.customizations || {},
       active: req.body.active !== undefined ? req.body.active : true
     };
@@ -816,6 +912,7 @@ router.put('/menu/:id', authenticateToken, validateId, validateMenu, async (req,
       name: req.body.name,
       category: req.body.category,
       base_price: req.body.base_price,
+      image_url: req.body.image_url || null,
       customizations: req.body.customizations || {},
       active: req.body.active !== undefined ? req.body.active : true
     };

@@ -16,6 +16,7 @@ CREATE TABLE menus (
     name VARCHAR(100) NOT NULL,
     category VARCHAR(50) NOT NULL,
     base_price DECIMAL(10,2) NOT NULL,
+    image_url TEXT,
     customizations JSONB DEFAULT '{}',
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

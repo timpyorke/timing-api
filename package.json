@@ -7,6 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "init-db": "node scripts/init-db.js",
+    "migrate": "node src/scripts/migrate.js",
     "docs": "echo 'API Documentation available at http://localhost:8000/api-docs'",
     "test": "jest"
   },
