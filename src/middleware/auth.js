@@ -12,7 +12,7 @@ const authenticateToken = async (req, res, next) => {
   try {
     // First try JWT token (for admin login)
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'timing_api_jwt_secret_key_2024_secure_random_string_for_production');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'timing_api_jwt_secret_key_2024_secure_random_string_for_production', { algorithm: 'HS256' });
       req.user = decoded;
       return next();
     } catch (jwtError) {
@@ -65,7 +65,8 @@ const authenticateToken = async (req, res, next) => {
 
 const generateToken = (payload) => {
   return jwt.sign(payload, process.env.JWT_SECRET || 'timing_api_jwt_secret_key_2024_secure_random_string_for_production', {
-    expiresIn: '24h'
+    expiresIn: '24h',
+    algorithm: 'HS256'
   });
 };
 
