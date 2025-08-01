@@ -17,7 +17,7 @@ const validateOrder = [
   body('customer_info.name').notEmpty().withMessage('Customer name is required'),
   body('customer_info.phone').optional().isMobilePhone().withMessage('Invalid phone number'),
   body('items').isArray({ min: 1 }).withMessage('Order must contain at least one item'),
-  body('items.*.beverage_id').isInt({ min: 1 }).withMessage('Valid beverage ID required'),
+  body('items.*.menu_id').isInt({ min: 1 }).withMessage('Valid menu ID required'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   body('items.*.price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
   body('items.*.customizations').optional().isObject().withMessage('Customizations must be an object'),

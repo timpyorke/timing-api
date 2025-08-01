@@ -125,7 +125,7 @@ const options = {
         OrderItem: {
           type: 'object',
           properties: {
-            menu_item_id: {
+            menu_id: {
               type: 'integer',
               example: 1
             },
@@ -147,7 +147,7 @@ const options = {
               }
             }
           },
-          required: ['menu_item_id', 'quantity', 'price']
+          required: ['menu_id', 'quantity', 'price']
         },
         CustomerInfo: {
           type: 'object',
@@ -225,8 +225,8 @@ const options = {
                 type: 'object',
                 properties: {
                   id: { type: 'integer' },
-                  beverage_id: { type: 'integer' },
-                  beverage_name: { type: 'string' },
+                  menu_id: { type: 'integer' },
+                  menu_name: { type: 'string' },
                   customizations: { type: 'object' },
                   quantity: { type: 'integer' },
                   price: { type: 'number' }

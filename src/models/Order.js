@@ -54,7 +54,7 @@ class Order {
             json_build_object(
               'id', oi.id,
               'menu_id', oi.menu_id,
-              'beverage_name', b.name,
+              'menu_name', b.name,
               'customizations', oi.customizations,
               'quantity', oi.quantity,
               'price', oi.price
@@ -81,7 +81,7 @@ class Order {
             json_build_object(
               'id', oi.id,
               'menu_id', oi.menu_id,
-              'beverage_name', b.name,
+              'menu_name', b.name,
               'customizations', oi.customizations,
               'quantity', oi.quantity,
               'price', oi.price

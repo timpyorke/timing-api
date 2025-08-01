@@ -11,7 +11,7 @@
 
 ## 🚀 Overview
 
-The **Timing API** is a production-ready backend service designed for coffee shops and beverage businesses. It provides comprehensive order management, real-time notifications, and admin dashboard functionality with modern security practices.
+The **Timing API** is a production-ready backend service designed for coffee shops and food & beverage businesses. It provides comprehensive order management, real-time notifications, and admin dashboard functionality with modern security practices.
 
 ### ✨ Key Features
 

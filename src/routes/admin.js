@@ -369,11 +369,11 @@ router.post('/orders', authenticateToken, async (req, res) => {
     // Validate that menu items exist and calculate total
     let calculatedTotal = 0;
     for (const item of orderData.items) {
-      const menuItem = await Menu.findById(item.beverage_id);
+      const menuItem = await Menu.findById(item.menu_id);
       if (!menuItem) {
         return res.status(400).json({
           success: false,
-          error: `Menu item with ID ${item.beverage_id} not found`
+          error: `Menu item with ID ${item.menu_id} not found`
         });
       }
       if (!menuItem.active) {
@@ -723,6 +723,72 @@ router.get('/menu', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch menu'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/menu/{id}:
+ *   get:
+ *     summary: Get specific menu item by ID
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Menu item ID
+ *     responses:
+ *       200:
+ *         description: Menu item retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/MenuItem'
+ *       404:
+ *         description: Menu item not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/menu/:id', authenticateToken, validateId, async (req, res) => {
+  try {
+    const menuItem = await Menu.findById(req.params.id);
+    
+    if (!menuItem) {
+      return res.status(404).json({
+        success: false,
+        error: 'Menu item not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: menuItem
+    });
+  } catch (error) {
+    console.error('Error fetching menu item:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch menu item'
     });
   }
 });

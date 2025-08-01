@@ -41,7 +41,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"customer_info\": {\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"phone\": \"+1234567890\"\n  },\n  \"items\": [\n    {\n      \"beverage_id\": 1,\n      \"quantity\": 2,\n      \"price\": 3.50,\n      \"customizations\": {\n        \"size\": \"Large\",\n        \"extras\": [\"Extra Shot\"]\n      }\n    }\n  ],\n  \"total\": 7.00\n}"
+							"raw": "{\n  \"customer_info\": {\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"phone\": \"+1234567890\"\n  },\n  \"items\": [\n    {\n      \"menu_id\": 1,\n      \"quantity\": 2,\n      \"price\": 3.50,\n      \"customizations\": {\n        \"size\": \"Large\",\n        \"extras\": [\"Extra Shot\"]\n      }\n    }\n  ],\n  \"total\": 7.00\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/orders",

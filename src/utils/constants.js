@@ -21,7 +21,6 @@ const ERROR_MESSAGES = {
   TOKEN_EXPIRED: 'Token expired',
   VALIDATION_FAILED: 'Validation failed',
   ORDER_NOT_FOUND: 'Order not found',
-  BEVERAGE_NOT_FOUND: 'Beverage not found',
   MENU_ITEM_NOT_FOUND: 'Menu item not found',
   SERVER_ERROR: 'Internal server error'
 };

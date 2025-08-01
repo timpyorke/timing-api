@@ -108,11 +108,11 @@ router.post('/orders', validateOrder, async (req, res) => {
     // Validate that menu items exist and calculate total
     let calculatedTotal = 0;
     for (const item of orderData.items) {
-      const menuItem = await Menu.findById(item.beverage_id);
+      const menuItem = await Menu.findById(item.menu_id);
       if (!menuItem) {
         return res.status(400).json({
           success: false,
-          error: `Menu item with ID ${item.beverage_id} not found`
+          error: `Menu item with ID ${item.menu_id} not found`
         });
       }
       if (!menuItem.active) {
