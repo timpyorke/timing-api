@@ -42,11 +42,11 @@ NODE_ENV=development
 DATABASE_URL="postgresql://postgres:Timing%24upabase@db.kzerorfeuabowkimywnf.supabase.co:5432/postgres"
 
 # Firebase Admin SDK
-FIREBASE_PROJECT_ID="timing-505f2"
-FIREBASE_PRIVATE_KEY_ID="32c82f88d1bde7c5b6fa2f88881e165be4fe94ff"
+FIREBASE_PROJECT_ID="timing-48aba"
+FIREBASE_PRIVATE_KEY_ID="aac2e8b4f12ee13a2a2154844da94d79bb79ab19"
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----"..."
 FIREBASE_CLIENT_EMAIL="firebase-adminsdk-fbsvc@timing-48aba.iam.gserviceaccount.com"
-FIREBASE_CLIENT_ID="112253221953466838180"
+FIREBASE_CLIENT_ID="114328713493572451245"
 ````
 
 ## Development Commands
