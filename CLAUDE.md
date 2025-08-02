@@ -45,7 +45,7 @@ DATABASE_URL="postgresql://postgres:Timing%24upabase@db.kzerorfeuabowkimywnf.sup
 FIREBASE_PROJECT_ID="timing-505f2"
 FIREBASE_PRIVATE_KEY_ID="32c82f88d1bde7c5b6fa2f88881e165be4fe94ff"
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----"..."
-FIREBASE_CLIENT_EMAIL="firebase-adminsdk-fbsvc@timing-505f2.iam.gserviceaccount.com"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-fbsvc@timing-48aba.iam.gserviceaccount.com"
 FIREBASE_CLIENT_ID="112253221953466838180"
 ````
 
