@@ -53,11 +53,47 @@ FIREBASE_CLIENT_ID="114328713493572451245"
 
 ```bash
 npm install          # Install dependencies
-npm run dev         # Start development server with nodemon
-npm start           # Start production server
+npm run dev         # Start development server with nodemon (uses .env.development)
+npm run start       # Start production server (uses .env)
+npm run start:dev   # Start with development environment
+npm run start:prod  # Start with production environment
+npm run dev:prod    # Development server with production environment
 npm run init-db     # Initialize database schema
 npm run docs        # Show API documentation URL
 ```
+
+## Environment Configuration
+
+The project uses environment-specific configuration files:
+
+- `.env.example` - Template file with placeholder values
+- `.env.development` - Development environment configuration
+- `.env.production` - Production environment configuration
+- `.env` - Default environment file (fallback)
+
+### Setup Instructions
+
+1. **Development Setup:**
+   ```bash
+   cp .env.example .env.development
+   # Update .env.development with development credentials
+   npm run dev
+   ```
+
+2. **Production Setup:**
+   ```bash
+   cp .env.example .env.production
+   # Update .env.production with production credentials
+   npm run start:prod
+   ```
+
+### Environment Variables
+
+- `NODE_ENV` - Environment mode (development/production)
+- `PORT` - Server port (default: 8000)
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET` - Secure secret for JWT tokens
+- `FIREBASE_*` - Firebase Admin SDK configuration
 
 ## API Documentation
 
