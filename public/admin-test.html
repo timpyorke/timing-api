@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Real-time Notifications Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .notification {
+            background-color: #e8f4fd;
+            border: 1px solid #b8daff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .login-form {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .logs {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Real-time Notifications Test</h1>
+        
+        <div class="login-form">
+            <h3>Admin Login</h3>
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" value="admin" />
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="admin123" />
+            </div>
+            <button id="loginBtn" onclick="login()">Login & Connect</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+        </div>
+
+        <div id="status" class="status disconnected">Disconnected</div>
+        
+        <div id="notifications">
+            <h3>Real-time Notifications:</h3>
+        </div>
+        
+        <div>
+            <h3>Connection Logs:</h3>
+            <div id="logs" class="logs"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = null;
+        let token = null;
+
+        function log(message) {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            logs.innerHTML += `[${timestamp}] ${message}\n`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    token = data.token;
+                    log('Login successful, connecting to WebSocket...');
+                    connectWebSocket();
+                } else {
+                    log('Login failed: ' + data.error);
+                }
+            } catch (error) {
+                log('Login error: ' + error.message);
+            }
+        }
+
+        function connectWebSocket() {
+            if (!token) {
+                log('No token available');
+                return;
+            }
+
+            socket = io('/admin', {
+                auth: {
+                    token: token
+                }
+            });
+
+            socket.on('connect', () => {
+                log('Connected to WebSocket server');
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('loginBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+            });
+
+            socket.on('disconnect', () => {
+                log('Disconnected from WebSocket server');
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('loginBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            });
+
+            socket.on('connected', (data) => {
+                log('Server confirmation: ' + data.message);
+                log('Logged in as: ' + data.username);
+            });
+
+            socket.on('new_order', (notification) => {
+                log('New order notification received');
+                showNotification('New Order', notification);
+            });
+
+            socket.on('order_status_update', (notification) => {
+                log('Order status update received');
+                showNotification('Order Update', notification);
+            });
+
+            socket.on('connect_error', (error) => {
+                log('Connection error: ' + error.message);
+            });
+        }
+
+        function showNotification(type, notification) {
+            const notificationsDiv = document.getElementById('notifications');
+            const notificationElement = document.createElement('div');
+            notificationElement.className = 'notification';
+            
+            let content = `<strong>${type}</strong><br>`;
+            if (notification.order) {
+                content += `Order ID: ${notification.order.id}<br>`;
+                content += `Customer: ${notification.order.customer_name}<br>`;
+                if (notification.order.total) {
+                    content += `Total: $${notification.order.total}<br>`;
+                }
+                if (notification.order.status) {
+                    content += `Status: ${notification.order.status}<br>`;
+                }
+            }
+            content += `Time: ${new Date(notification.timestamp).toLocaleString()}`;
+            
+            notificationElement.innerHTML = content;
+            notificationsDiv.appendChild(notificationElement);
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            token = null;
+            document.getElementById('loginBtn').disabled = false;
+            document.getElementById('disconnectBtn').disabled = true;
+        }
+    </script>
+</body>
+</html>

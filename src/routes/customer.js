@@ -4,6 +4,7 @@ const cache = require('memory-cache');
 const Menu = require('../models/Menu');
 const Order = require('../models/Order');
 const NotificationService = require('../services/notificationService');
+const websocketService = require('../services/websocketService');
 const { validateOrder, validateId } = require('../middleware/validation');
 
 const CACHE_KEY = 'full-menu';
@@ -229,9 +230,13 @@ router.post('/orders', validateOrder, async (req, res) => {
     // Create the order
     const order = await Order.create(orderData);
 
-    // Send notification to admins
+    // Send notifications to admins (both Firebase and real-time)
     try {
+      // Send Firebase push notification
       await NotificationService.sendOrderNotification(order);
+      
+      // Send real-time WebSocket notification
+      websocketService.sendOrderNotification(order);
     } catch (notificationError) {
       console.error('Failed to send notification:', notificationError);
       // Don't fail the order creation if notification fails

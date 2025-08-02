@@ -4,6 +4,7 @@ const Order = require('../models/Order');
 const Menu = require('../models/Menu');
 const FcmToken = require('../models/FcmToken');
 const NotificationService = require('../services/notificationService');
+const websocketService = require('../services/websocketService');
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const pool = require('../config/database');
 const { 
@@ -659,9 +660,10 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
     // Update order status
     const updatedOrder = await Order.updateStatus(orderId, status);
 
-    // Send status update notification (if needed for customer)
+    // Send status update notifications (both Firebase and real-time)
     try {
       await NotificationService.sendOrderStatusUpdate(updatedOrder, status);
+      websocketService.sendOrderStatusUpdate(updatedOrder, status);
     } catch (notificationError) {
       console.error('Failed to send status update notification:', notificationError);
     }
@@ -1134,6 +1136,332 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
 
 /**
  * @swagger
+ * /api/admin/sales/insights:
+ *   get:
+ *     summary: Get comprehensive sales insights
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for analysis (YYYY-MM-DD). Defaults to 30 days ago
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for analysis (YYYY-MM-DD). Only used with start_date
+ *     responses:
+ *       200:
+ *         description: Sales insights retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     summary:
+ *                       type: object
+ *                       properties:
+ *                         total_orders:
+ *                           type: integer
+ *                           example: 150
+ *                         total_revenue:
+ *                           type: number
+ *                           example: 1250.50
+ *                         average_order_value:
+ *                           type: number
+ *                           example: 8.34
+ *                         completed_orders:
+ *                           type: integer
+ *                           example: 140
+ *                         pending_orders:
+ *                           type: integer
+ *                           example: 5
+ *                         preparing_orders:
+ *                           type: integer
+ *                           example: 3
+ *                         ready_orders:
+ *                           type: integer
+ *                           example: 2
+ *                         cancelled_orders:
+ *                           type: integer
+ *                           example: 0
+ *                         completed_revenue:
+ *                           type: number
+ *                           example: 1167.50
+ *                         completion_rate:
+ *                           type: string
+ *                           example: "93.3"
+ *                     daily_breakdown:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           order_date:
+ *                             type: string
+ *                             format: date-time
+ *                           total_orders:
+ *                             type: integer
+ *                           total_revenue:
+ *                             type: number
+ *                 period:
+ *                   type: object
+ *                   properties:
+ *                     start_date:
+ *                       type: string
+ *                       format: date
+ *                     end_date:
+ *                       type: string
+ *                       format: date
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/sales/insights', authenticateToken, async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    
+    // Validate date format if provided
+    if (start_date && !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid start_date format. Use YYYY-MM-DD'
+      });
+    }
+    
+    if (end_date && !/^\d{4}-\d{2}-\d{2}$/.test(end_date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid end_date format. Use YYYY-MM-DD'
+      });
+    }
+
+    const salesData = await Order.getSalesInsights(start_date, end_date);
+    
+    // Calculate completion rate
+    const completionRate = salesData.summary.total_orders > 0 
+      ? ((parseInt(salesData.summary.completed_orders) / parseInt(salesData.summary.total_orders)) * 100).toFixed(1)
+      : 0;
+    
+    // Determine actual period used
+    const actualStartDate = start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const actualEndDate = end_date || new Date().toISOString().split('T')[0];
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          ...salesData.summary,
+          total_orders: parseInt(salesData.summary.total_orders),
+          total_revenue: parseFloat(salesData.summary.total_revenue),
+          average_order_value: parseFloat(salesData.summary.average_order_value),
+          completed_orders: parseInt(salesData.summary.completed_orders),
+          pending_orders: parseInt(salesData.summary.pending_orders),
+          preparing_orders: parseInt(salesData.summary.preparing_orders),
+          ready_orders: parseInt(salesData.summary.ready_orders),
+          cancelled_orders: parseInt(salesData.summary.cancelled_orders),
+          completed_revenue: parseFloat(salesData.summary.completed_revenue),
+          completion_rate: completionRate
+        },
+        daily_breakdown: salesData.daily_breakdown.map(day => ({
+          ...day,
+          total_orders: parseInt(day.total_orders),
+          total_revenue: parseFloat(day.total_revenue),
+          average_order_value: parseFloat(day.average_order_value)
+        }))
+      },
+      period: {
+        start_date: actualStartDate,
+        end_date: actualEndDate
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching sales insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch sales insights'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/sales/top-items:
+ *   get:
+ *     summary: Get top selling menu items
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for analysis (YYYY-MM-DD). Defaults to 30 days ago
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for analysis (YYYY-MM-DD). Only used with start_date
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of top items to return
+ *     responses:
+ *       200:
+ *         description: Top selling items retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       menu_id:
+ *                         type: integer
+ *                         example: 1
+ *                       menu_name:
+ *                         type: string
+ *                         example: "Cappuccino"
+ *                       category:
+ *                         type: string
+ *                         example: "Coffee"
+ *                       base_price:
+ *                         type: number
+ *                         example: 4.50
+ *                       image_url:
+ *                         type: string
+ *                         example: "https://example.com/cappuccino.jpg"
+ *                       total_quantity_sold:
+ *                         type: integer
+ *                         example: 85
+ *                       number_of_orders:
+ *                         type: integer
+ *                         example: 42
+ *                       total_revenue:
+ *                         type: number
+ *                         example: 382.50
+ *                       average_price:
+ *                         type: number
+ *                         example: 4.50
+ *                       percentage_of_total_sales:
+ *                         type: number
+ *                         example: 15.25
+ *                 period:
+ *                   type: object
+ *                   properties:
+ *                     start_date:
+ *                       type: string
+ *                       format: date
+ *                     end_date:
+ *                       type: string
+ *                       format: date
+ *                 count:
+ *                   type: integer
+ *                   example: 10
+ *       400:
+ *         description: Invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/sales/top-items', authenticateToken, async (req, res) => {
+  try {
+    const { start_date, end_date, limit = 10 } = req.query;
+    
+    // Validate date format if provided
+    if (start_date && !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid start_date format. Use YYYY-MM-DD'
+      });
+    }
+    
+    if (end_date && !/^\d{4}-\d{2}-\d{2}$/.test(end_date)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid end_date format. Use YYYY-MM-DD'
+      });
+    }
+    
+    // Validate limit
+    const limitNum = parseInt(limit);
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid limit. Must be a number between 1 and 100'
+      });
+    }
+
+    const topItems = await Order.getTopSellingItems(start_date, end_date, limitNum);
+    
+    // Determine actual period used
+    const actualStartDate = start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const actualEndDate = end_date || new Date().toISOString().split('T')[0];
+
+    res.json({
+      success: true,
+      data: topItems.map(item => ({
+        ...item,
+        menu_id: parseInt(item.menu_id),
+        base_price: parseFloat(item.base_price),
+        total_quantity_sold: parseInt(item.total_quantity_sold),
+        number_of_orders: parseInt(item.number_of_orders),
+        total_revenue: parseFloat(item.total_revenue),
+        average_price: parseFloat(item.average_price),
+        percentage_of_total_sales: parseFloat(item.percentage_of_total_sales)
+      })),
+      period: {
+        start_date: actualStartDate,
+        end_date: actualEndDate
+      },
+      count: topItems.length
+    });
+  } catch (error) {
+    console.error('Error fetching top selling items:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch top selling items'
+    });
+  }
+});
+
+/**
+ * @swagger
  * /api/admin/test-notification:
  *   post:
  *     summary: Send test push notification
@@ -1219,6 +1547,51 @@ router.post('/test-notification', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to send test notification'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/websocket/stats:
+ *   get:
+ *     summary: Get WebSocket connection statistics
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: WebSocket stats retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     adminConnections:
+ *                       type: number
+ *                       example: 2
+ *                     isInitialized:
+ *                       type: boolean
+ *                       example: true
+ */
+router.get('/websocket/stats', authenticateToken, (req, res) => {
+  try {
+    const stats = websocketService.getStats();
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Error getting WebSocket stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get WebSocket stats'
     });
   }
 });
