@@ -1,0 +1,46 @@
+{
+  "name": "timing-api",
+  "version": "1.0.0",
+  "description": "Node.js/Express API for order management with Firebase integration",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:dev": "NODE_ENV=development node -r dotenv/config src/server.js dotenv_config_path=.env.development",
+    "start:prod": "NODE_ENV=production node -r dotenv/config src/server.js dotenv_config_path=.env.production",
+    "dev": "NODE_ENV=development nodemon -r dotenv/config src/server.js dotenv_config_path=.env.development",
+    "dev:prod": "NODE_ENV=production nodemon -r dotenv/config src/server.js dotenv_config_path=.env.production",
+    "init-db": "node scripts/init-db.js",
+    "migrate": "node src/scripts/migrate.js",
+    "docs": "echo 'API Documentation available at http://localhost:8000/api-docs'",
+    "test": "jest"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^6.10.0",
+    "express-validator": "^7.0.1",
+    "firebase-admin": "^11.11.1",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "memory-cache": "^0.2.0",
+    "pg": "^8.11.3",
+    "socket.io": "^4.8.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.6.2",
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "api",
+    "express",
+    "firebase",
+    "postgresql",
+    "orders"
+  ],
+  "author": "",
+  "license": "MIT"
+}
