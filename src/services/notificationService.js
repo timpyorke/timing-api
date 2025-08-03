@@ -45,28 +45,92 @@ class NotificationService {
         created_at: order.created_at ? order.created_at.toString() : new Date().toISOString()
       };
 
+      // Filter out invalid tokens before sending
+      const validTokens = tokens.filter(token => 
+        token && 
+        typeof token === 'string' && 
+        token.length > 10 && 
+        !token.startsWith('test_') &&
+        !token.includes('dummy')
+      );
+
+      if (validTokens.length === 0) {
+        console.log('No valid FCM tokens found after filtering');
+        return { successCount: 0, failureCount: 0, responses: [] };
+      }
+
+      console.log(`Sending notification to ${validTokens.length} valid tokens (filtered from ${tokens.length} total)`);
+
       let response;
-      if (tokens.length === 1) {
+      if (validTokens.length === 1) {
         // Use single message send for one token
         const message = {
           notification,
           data,
-          token: tokens[0]
+          token: validTokens[0]
         };
-        const singleResponse = await messaging.send(message);
-        response = {
-          successCount: 1,
-          failureCount: 0,
-          responses: [{ success: true, messageId: singleResponse }]
-        };
+        try {
+          const singleResponse = await messaging.send(message);
+          response = {
+            successCount: 1,
+            failureCount: 0,
+            responses: [{ success: true, messageId: singleResponse }]
+          };
+        } catch (error) {
+          console.log('Single token send failed:', error.code, error.message);
+          response = {
+            successCount: 0,
+            failureCount: 1,
+            responses: [{ success: false, error: error }]
+          };
+          
+          // Remove invalid token if it's a registration error
+          if (error.code === 'messaging/registration-token-not-registered' || 
+              error.code === 'messaging/invalid-registration-token') {
+            console.log('Removing invalid token from database:', validTokens[0].substring(0, 20) + '...');
+            try {
+              await FcmToken.remove(validTokens[0]);
+            } catch (dbError) {
+              console.error('Error removing invalid token:', dbError.message);
+            }
+          }
+        }
       } else {
         // Use multicast for multiple tokens
         const message = {
           notification,
           data,
-          tokens: tokens
+          tokens: validTokens
         };
-        response = await messaging.sendMulticast(message);
+        try {
+          response = await messaging.sendMulticast(message);
+          
+          // Clean up invalid tokens
+          if (response.failureCount > 0) {
+            const invalidTokens = [];
+            response.responses.forEach((resp, idx) => {
+              if (!resp.success && 
+                  (resp.error.code === 'messaging/registration-token-not-registered' ||
+                   resp.error.code === 'messaging/invalid-registration-token')) {
+                invalidTokens.push(validTokens[idx]);
+              }
+            });
+            
+            if (invalidTokens.length > 0) {
+              console.log(`Removing ${invalidTokens.length} invalid tokens from database`);
+              for (const token of invalidTokens) {
+                try {
+                  await FcmToken.remove(token);
+                } catch (dbError) {
+                  console.error('Error removing invalid token:', dbError.message);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.log('Multicast send failed:', error.code, error.message);
+          throw error;
+        }
       }
       
       console.log('Successfully sent message:', response.successCount, 'messages sent');
