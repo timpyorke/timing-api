@@ -3,9 +3,12 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const swagger = require('./config/swagger');
+const http = require('http');
+const websocketService = require('./services/websocketService');
 require('dotenv').config();
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 8000;
 
 // Security middleware
@@ -22,6 +25,9 @@ app.use(limiter);
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files
+app.use(express.static('public'));
 
 // Swagger documentation
 app.use('/api-docs', swagger.serve, swagger.setup);
@@ -70,6 +76,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+// Initialize WebSocket service
+websocketService.initialize(server);
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`WebSocket service available at ws://localhost:${PORT}/admin`);
 });

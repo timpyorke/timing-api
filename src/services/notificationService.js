@@ -12,22 +12,42 @@ class NotificationService {
         return;
       }
 
-      const message = {
-        notification: {
-          title: 'New Order Received',
-          body: `Order #${order.id} - ${order.customer_info.name || 'Customer'} - $${order.total}`
-        },
-        data: {
-          type: 'new_order',
-          order_id: order.id.toString(),
-          customer_name: order.customer_info.name || 'Customer',
-          total: order.total.toString(),
-          created_at: order.created_at ? order.created_at.toString() : new Date().toISOString()
-        },
-        tokens: tokens
+      const notification = {
+        title: 'New Order Received',
+        body: `Order #${order.id} - ${order.customer_info.name || 'Customer'} - $${order.total}`
       };
 
-      const response = await messaging.sendMulticast(message);
+      const data = {
+        type: 'new_order',
+        order_id: order.id.toString(),
+        customer_name: order.customer_info.name || 'Customer',
+        total: order.total.toString(),
+        created_at: order.created_at ? order.created_at.toString() : new Date().toISOString()
+      };
+
+      let response;
+      if (tokens.length === 1) {
+        // Use single message send for one token
+        const message = {
+          notification,
+          data,
+          token: tokens[0]
+        };
+        const singleResponse = await messaging.send(message);
+        response = {
+          successCount: 1,
+          failureCount: 0,
+          responses: [{ success: true, messageId: singleResponse }]
+        };
+      } else {
+        // Use multicast for multiple tokens
+        const message = {
+          notification,
+          data,
+          tokens: tokens
+        };
+        response = await messaging.sendMulticast(message);
+      }
       
       console.log('Successfully sent message:', response.successCount, 'messages sent');
       

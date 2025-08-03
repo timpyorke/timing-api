@@ -42,22 +42,58 @@ NODE_ENV=development
 DATABASE_URL="postgresql://postgres:Timing%24upabase@db.kzerorfeuabowkimywnf.supabase.co:5432/postgres"
 
 # Firebase Admin SDK
-FIREBASE_PROJECT_ID="timing-505f2"
-FIREBASE_PRIVATE_KEY_ID="32c82f88d1bde7c5b6fa2f88881e165be4fe94ff"
+FIREBASE_PROJECT_ID="timing-48aba"
+FIREBASE_PRIVATE_KEY_ID="aac2e8b4f12ee13a2a2154844da94d79bb79ab19"
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----"..."
-FIREBASE_CLIENT_EMAIL="firebase-adminsdk-fbsvc@timing-505f2.iam.gserviceaccount.com"
-FIREBASE_CLIENT_ID="112253221953466838180"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-fbsvc@timing-48aba.iam.gserviceaccount.com"
+FIREBASE_CLIENT_ID="114328713493572451245"
 ````
 
 ## Development Commands
 
 ```bash
 npm install          # Install dependencies
-npm run dev         # Start development server with nodemon
-npm start           # Start production server
+npm run dev         # Start development server with nodemon (uses .env.development)
+npm run start       # Start production server (uses .env)
+npm run start:dev   # Start with development environment
+npm run start:prod  # Start with production environment
+npm run dev:prod    # Development server with production environment
 npm run init-db     # Initialize database schema
 npm run docs        # Show API documentation URL
 ```
+
+## Environment Configuration
+
+The project uses environment-specific configuration files:
+
+- `.env.example` - Template file with placeholder values
+- `.env.development` - Development environment configuration
+- `.env.production` - Production environment configuration
+- `.env` - Default environment file (fallback)
+
+### Setup Instructions
+
+1. **Development Setup:**
+   ```bash
+   cp .env.example .env.development
+   # Update .env.development with development credentials
+   npm run dev
+   ```
+
+2. **Production Setup:**
+   ```bash
+   cp .env.example .env.production
+   # Update .env.production with production credentials
+   npm run start:prod
+   ```
+
+### Environment Variables
+
+- `NODE_ENV` - Environment mode (development/production)
+- `PORT` - Server port (default: 8000)
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET` - Secure secret for JWT tokens
+- `FIREBASE_*` - Firebase Admin SDK configuration
 
 ## API Documentation
 

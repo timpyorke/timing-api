@@ -5,7 +5,10 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start:dev": "NODE_ENV=development node -r dotenv/config src/server.js dotenv_config_path=.env.development",
+    "start:prod": "NODE_ENV=production node -r dotenv/config src/server.js dotenv_config_path=.env.production",
+    "dev": "NODE_ENV=development nodemon -r dotenv/config src/server.js dotenv_config_path=.env.development",
+    "dev:prod": "NODE_ENV=production nodemon -r dotenv/config src/server.js dotenv_config_path=.env.production",
     "init-db": "node scripts/init-db.js",
     "migrate": "node src/scripts/migrate.js",
     "docs": "echo 'API Documentation available at http://localhost:8000/api-docs'",
@@ -23,6 +26,7 @@
     "jsonwebtoken": "^9.0.2",
     "memory-cache": "^0.2.0",
     "pg": "^8.11.3",
+    "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
   },
