@@ -35,7 +35,32 @@ class Order {
         ]);
       }
       
-      return await this.findById(order.id);
+      // Get the full order with items using the same transaction client
+      const query = `
+        SELECT 
+          o.*,
+          COALESCE(
+            json_agg(
+              json_build_object(
+                'id', oi.id,
+                'menu_id', oi.menu_id,
+                'menu_name', b.name,
+                'image_url', b.image_url,
+                'customizations', oi.customizations,
+                'quantity', oi.quantity,
+                'price', oi.price
+              )
+            ) FILTER (WHERE oi.id IS NOT NULL), 
+            '[]'
+          ) as items
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN menus b ON oi.menu_id = b.id
+        WHERE o.id = $1
+        GROUP BY o.id
+      `;
+      const result = await client.query(query, [order.id]);
+      return result.rows[0];
     });
   }
 
@@ -160,14 +185,14 @@ class Order {
         }
       }
       
-      return await this.findById(id);
+      return await Order.findById(id);
     });
   }
 
   static async delete(id) {
     return executeTransaction(async (client) => {
       // Get order before deletion for return value
-      const order = await this.findById(id);
+      const order = await Order.findById(id);
       if (!order) {
         return null;
       }
