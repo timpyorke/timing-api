@@ -4,6 +4,22 @@ const FcmToken = require('../models/FcmToken');
 class NotificationService {
   static async sendOrderNotification(order) {
     try {
+      // Validate order object
+      if (!order) {
+        console.error('Order object is null or undefined');
+        throw new Error('Order object is required');
+      }
+
+      if (!order.id) {
+        console.error('Order object missing required id property:', order);
+        throw new Error('Order must have an id property');
+      }
+
+      if (!order.total) {
+        console.error('Order object missing required total property:', order);
+        throw new Error('Order must have a total property');
+      }
+
       // Get all FCM tokens
       const tokens = await FcmToken.getAll();
       
@@ -12,16 +28,20 @@ class NotificationService {
         return;
       }
 
+      // Safely extract customer info
+      const customerName = order.customer_info && order.customer_info.name ? order.customer_info.name : 'Customer';
+      const orderTotal = parseFloat(order.total) || 0;
+
       const notification = {
         title: 'New Order Received',
-        body: `Order #${order.id} - ${order.customer_info.name || 'Customer'} - $${order.total}`
+        body: `Order #${order.id} - ${customerName} - $${orderTotal.toFixed(2)}`
       };
 
       const data = {
         type: 'new_order',
         order_id: order.id.toString(),
-        customer_name: order.customer_info.name || 'Customer',
-        total: order.total.toString(),
+        customer_name: customerName,
+        total: orderTotal.toString(),
         created_at: order.created_at ? order.created_at.toString() : new Date().toISOString()
       };
 
@@ -67,6 +87,22 @@ class NotificationService {
 
   static async sendOrderStatusUpdate(order, newStatus) {
     try {
+      // Validate order object
+      if (!order) {
+        console.error('Order object is null or undefined');
+        throw new Error('Order object is required');
+      }
+
+      if (!order.id) {
+        console.error('Order object missing required id property:', order);
+        throw new Error('Order must have an id property');
+      }
+
+      if (!newStatus) {
+        console.error('New status is required');
+        throw new Error('New status is required');
+      }
+
       // This could be used to notify customers if needed
       // For now, we'll just log it
       console.log(`Order ${order.id} status updated to: ${newStatus}`);

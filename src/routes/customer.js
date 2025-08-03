@@ -185,12 +185,20 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
   // Create the order
   const order = await Order.create(orderData);
 
+  // Validate that order was created successfully
+  if (!order || !order.id) {
+    console.error('Order creation failed - no order returned or missing id');
+    return sendError(res, 'Failed to create order', 500);
+  }
+
   // Send notification to admins
   try {
     await NotificationService.sendOrderNotification(order);
+    console.log(`Notification sent successfully for order ${order.id}`);
   } catch (notificationError) {
-    console.error('Failed to send notification:', notificationError);
+    console.error('Failed to send notification for order', order.id, ':', notificationError.message);
     // Don't fail the order creation if notification fails
+    // Log the error but continue with successful order response
   }
 
   sendSuccess(res, order, SUCCESS_MESSAGES.ORDER_CREATED, 201);
