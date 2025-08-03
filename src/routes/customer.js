@@ -5,6 +5,8 @@ const Menu = require('../models/Menu');
 const Order = require('../models/Order');
 const NotificationService = require('../services/notificationService');
 const { validateOrder, validateId } = require('../middleware/validation');
+const { sendSuccess, sendError, handleDatabaseError, asyncHandler } = require('../utils/responseHelpers');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
 
 const CACHE_KEY = 'full-menu';
 const CACHE_TIME_MS = 5 * 60 * 1000; // 5 minutes
@@ -44,32 +46,17 @@ const CACHE_TIME_MS = 5 * 60 * 1000; // 5 minutes
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/menu', async (req, res) => {
-  try {
-    const cachedMenu = cache.get(CACHE_KEY);
-    if (cachedMenu) {
-      return res.json({
-        success: true,
-        data: cachedMenu,
-        fromCache: true
-      });
-    }
-
-    const menu = await Menu.getMenuByCategory();
-    cache.put(CACHE_KEY, menu, CACHE_TIME_MS);
-
-    res.json({
-      success: true,
-      data: menu
-    });
-  } catch (error) {
-    console.error('Error fetching menu:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch menu'
-    });
+router.get('/menu', asyncHandler(async (req, res) => {
+  const cachedMenu = cache.get(CACHE_KEY);
+  if (cachedMenu) {
+    return sendSuccess(res, cachedMenu);
   }
-});
+
+  const menu = await Menu.getMenuByCategory();
+  cache.put(CACHE_KEY, menu, CACHE_TIME_MS);
+
+  sendSuccess(res, menu);
+}));
 
 /**
  * @swagger
@@ -110,37 +97,15 @@ router.get('/menu', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/menu/:id', validateId, async (req, res) => {
-  try {
-    const menuItem = await Menu.findById(req.params.id);
-    
-    if (!menuItem) {
-      return res.status(404).json({
-        success: false,
-        error: 'Menu item not found'
-      });
-    }
-
-    // Only return active menu items to customers
-    if (!menuItem.active) {
-      return res.status(404).json({
-        success: false,
-        error: 'Menu item not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: menuItem
-    });
-  } catch (error) {
-    console.error('Error fetching menu item:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch menu item'
-    });
+router.get('/menu/:id', validateId, asyncHandler(async (req, res) => {
+  const menuItem = await Menu.findById(req.params.id);
+  
+  if (!menuItem || !menuItem.active) {
+    return sendError(res, ERROR_MESSAGES.MENU_ITEM_NOT_FOUND, 404);
   }
-});
+
+  sendSuccess(res, menuItem);
+}));
 
 /**
  * @swagger
@@ -183,73 +148,52 @@ router.get('/menu/:id', validateId, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/orders', validateOrder, async (req, res) => {
-  try {
-    const orderData = {
-      customer_id: req.body.customer_id,
-      customer_info: req.body.customer_info,
-      items: req.body.items,
-      total: req.body.total
-    };
+router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
+  const orderData = {
+    customer_id: req.body.customer_id,
+    customer_info: req.body.customer_info,
+    items: req.body.items,
+    total: req.body.total
+  };
 
-    // Validate that menu items exist and calculate total
-    const itemIds = orderData.items.map(item => item.menu_id);
-    const menuItems = await Menu.findByIds(itemIds);
-    const menuItemsById = menuItems.reduce((acc, item) => {
-      acc[item.id] = item;
-      return acc;
-    }, {});
+  // Validate that menu items exist and calculate total
+  const itemIds = orderData.items.map(item => item.menu_id);
+  const menuItems = await Menu.findByIds(itemIds);
+  const menuItemsById = menuItems.reduce((acc, item) => {
+    acc[item.id] = item;
+    return acc;
+  }, {});
 
-    let calculatedTotal = 0;
-    for (const item of orderData.items) {
-      const menuItem = menuItemsById[item.menu_id];
-      if (!menuItem) {
-        return res.status(400).json({
-          success: false,
-          error: `Menu item with ID ${item.menu_id} not found`
-        });
-      }
-      if (!menuItem.active) {
-        return res.status(400).json({
-          success: false,
-          error: `Menu item "${menuItem.name}" is currently unavailable`
-        });
-      }
-      calculatedTotal += parseFloat(item.price) * item.quantity;
+  let calculatedTotal = 0;
+  for (const item of orderData.items) {
+    const menuItem = menuItemsById[item.menu_id];
+    if (!menuItem) {
+      return sendError(res, `Menu item with ID ${item.menu_id} not found`, 400);
     }
-
-    // Verify the total matches (allow small floating point differences)
-    if (Math.abs(calculatedTotal - parseFloat(orderData.total)) > 0.01) {
-      return res.status(400).json({
-        success: false,
-        error: 'Order total does not match item prices'
-      });
+    if (!menuItem.active) {
+      return sendError(res, `Menu item "${menuItem.name}" is currently unavailable`, 400);
     }
-
-    // Create the order
-    const order = await Order.create(orderData);
-
-    // Send notification to admins
-    try {
-      await NotificationService.sendOrderNotification(order);
-    } catch (notificationError) {
-      console.error('Failed to send notification:', notificationError);
-      // Don't fail the order creation if notification fails
-    }
-
-    res.status(201).json({
-      success: true,
-      data: order,
-      message: 'Order created successfully'
-    });
-  } catch (error) {
-    console.error('Error creating order:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create order'
-    });
+    calculatedTotal += parseFloat(item.price) * item.quantity;
   }
-});
+
+  // Verify the total matches (allow small floating point differences)
+  if (Math.abs(calculatedTotal - parseFloat(orderData.total)) > 0.01) {
+    return sendError(res, 'Order total does not match item prices', 400);
+  }
+
+  // Create the order
+  const order = await Order.create(orderData);
+
+  // Send notification to admins
+  try {
+    await NotificationService.sendOrderNotification(order);
+  } catch (notificationError) {
+    console.error('Failed to send notification:', notificationError);
+    // Don't fail the order creation if notification fails
+  }
+
+  sendSuccess(res, order, SUCCESS_MESSAGES.ORDER_CREATED, 201);
+}));
 
 /**
  * @swagger
@@ -290,37 +234,25 @@ router.post('/orders', validateOrder, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/orders/:id/status', validateId, async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id);
-    
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        error: 'Order not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        id: order.id,
-        status: order.status,
-        created_at: order.created_at,
-        updated_at: order.updated_at,
-        total: order.total,
-        customer_info: order.customer_info,
-        items: order.items
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching order status:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch order status'
-    });
+router.get('/orders/:id/status', validateId, asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  
+  if (!order) {
+    return sendError(res, ERROR_MESSAGES.ORDER_NOT_FOUND, 404);
   }
-});
+
+  const orderStatus = {
+    id: order.id,
+    status: order.status,
+    created_at: order.created_at,
+    updated_at: order.updated_at,
+    total: order.total,
+    customer_info: order.customer_info,
+    items: order.items
+  };
+
+  sendSuccess(res, orderStatus);
+}));
 
 /**
  * @swagger
@@ -357,21 +289,9 @@ router.get('/orders/:id/status', validateId, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/orders/customer/:customer_id', async (req, res) => {
-  try {
-    const orders = await Order.findAll({ customer_id: req.params.customer_id });
-    
-    res.json({
-      success: true,
-      data: orders
-    });
-  } catch (error) {
-    console.error('Error fetching customer orders:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch customer orders'
-    });
-  }
-});
+router.get('/orders/customer/:customer_id', asyncHandler(async (req, res) => {
+  const orders = await Order.findAll({ customer_id: req.params.customer_id });
+  sendSuccess(res, orders);
+}));
 
 module.exports = router;

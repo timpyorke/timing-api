@@ -1,12 +1,11 @@
 const { body, param, query, validationResult } = require('express-validator');
+const { sendValidationError } = require('../utils/responseHelpers');
+const { ORDER_STATUS } = require('../utils/constants');
 
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({
-      error: 'Validation failed',
-      details: errors.array()
-    });
+    return sendValidationError(res, errors.array());
   }
   next();
 };
@@ -43,8 +42,8 @@ const validateMenu = [
 
 // Order status validation
 const validateOrderStatus = [
-  body('status').isIn(['pending', 'preparing', 'ready', 'completed', 'cancelled'])
-    .withMessage('Status must be one of: pending, preparing, ready, completed, cancelled'),
+  body('status').isIn(Object.values(ORDER_STATUS))
+    .withMessage(`Status must be one of: ${Object.values(ORDER_STATUS).join(', ')}`),
   handleValidationErrors
 ];
 

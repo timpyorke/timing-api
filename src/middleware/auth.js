@@ -1,12 +1,14 @@
 const jwt = require('jsonwebtoken');
 const { admin } = require('../config/firebase');
+const { sendError } = require('../utils/responseHelpers');
+const { ERROR_MESSAGES } = require('../utils/constants');
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+    return sendError(res, ERROR_MESSAGES.UNAUTHORIZED, 401);
   }
 
   try {
@@ -66,7 +68,6 @@ const authenticateToken = async (req, res, next) => {
     
     next();
   } catch (error) {
-    console.debug('my token:', token);
     console.error('❌ Token verification error:', {
       errorCode: error.code,
       errorMessage: error.message,
@@ -75,12 +76,12 @@ const authenticateToken = async (req, res, next) => {
     });
     
     if (error.code === 'auth/id-token-expired') {
-      return res.status(401).json({ error: 'Token expired' });
+      return sendError(res, ERROR_MESSAGES.TOKEN_EXPIRED, 401);
     }
     if (error.code === 'auth/argument-error' || error.code === 'auth/invalid-id-token') {
-      return res.status(401).json({ error: 'Invalid token' });
+      return sendError(res, ERROR_MESSAGES.UNAUTHORIZED, 401);
     }
-    return res.status(401).json({ error: 'Invalid token' });
+    return sendError(res, ERROR_MESSAGES.UNAUTHORIZED, 401);
   }
 };
 

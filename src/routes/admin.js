@@ -5,7 +5,6 @@ const Menu = require('../models/Menu');
 const FcmToken = require('../models/FcmToken');
 const NotificationService = require('../services/notificationService');
 const { authenticateToken, generateToken } = require('../middleware/auth');
-const pool = require('../config/database');
 const { 
   validateOrderStatus, 
   validateMenu, 
@@ -13,6 +12,8 @@ const {
   validateId,
   validateFcmToken 
 } = require('../middleware/validation');
+const { sendSuccess, sendError, asyncHandler } = require('../utils/responseHelpers');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
 
 /**
  * @swagger
@@ -69,52 +70,37 @@ const {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/login', validateLogin, async (req, res) => {
-  try {
-    const { username, password, fcm_token } = req.body;
-    
-    // Simple hardcoded admin authentication (replace with database lookup in production)
-    if (username === 'admin' && password === 'admin123') {
-      // Generate JWT token
-      const payload = { 
-        username: 'admin', 
-        role: 'admin',
-        uid: 'admin-uid-12345'
-      };
-      const token = generateToken(payload);
-      
-      // Store FCM token if provided
-      if (fcm_token) {
-        try {
-          await FcmToken.store(fcm_token, payload.uid, {
-            userAgent: req.headers['user-agent'],
-            ip: req.ip,
-            timestamp: new Date().toISOString()
-          });
-        } catch (error) {
-          console.error('Error storing FCM token:', error);
-        }
-      }
-      
-      res.json({
-        success: true,
-        token,
-        message: 'Login successful'
-      });
-    } else {
-      res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-    }
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Login failed'
-    });
+router.post('/login', validateLogin, asyncHandler(async (req, res) => {
+  const { username, password, fcm_token } = req.body;
+  
+  // Simple hardcoded admin authentication (replace with database lookup in production)
+  if (username !== 'admin' || password !== 'admin123') {
+    return sendError(res, ERROR_MESSAGES.INVALID_CREDENTIALS, 401);
   }
-});
+
+  // Generate JWT token
+  const payload = { 
+    username: 'admin', 
+    role: 'admin',
+    uid: 'admin-uid-12345'
+  };
+  const token = generateToken(payload);
+  
+  // Store FCM token if provided
+  if (fcm_token) {
+    try {
+      await FcmToken.store(fcm_token, payload.uid, {
+        userAgent: req.headers['user-agent'],
+        ip: req.ip,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error storing FCM token:', error);
+    }
+  }
+  
+  sendSuccess(res, { token }, 'Login successful');
+}));
 
 /**
  * @swagger
@@ -158,39 +144,29 @@ router.post('/login', validateLogin, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/fcm-token', authenticateToken, validateFcmToken, async (req, res) => {
-  try {
-    const { fcm_token } = req.body;
-    
-    // Store FCM token with optional device info
-    const deviceInfo = {
-      userAgent: req.headers['user-agent'],
-      ip: req.ip,
-      timestamp: new Date().toISOString()
-    };
-    
-    const storedToken = await FcmToken.store(fcm_token, req.user.uid, deviceInfo);
-    
-    res.json({
-      success: true,
-      data: {
-        token_id: storedToken.id,
-        user: {
-          uid: req.user.uid,
-          email: req.user.email,
-          email_verified: req.user.email_verified
-        }
-      },
-      message: 'FCM token stored successfully'
-    });
-  } catch (error) {
-    console.error('Error storing FCM token:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to store FCM token'
-    });
-  }
-});
+router.post('/fcm-token', authenticateToken, validateFcmToken, asyncHandler(async (req, res) => {
+  const { fcm_token } = req.body;
+  
+  // Store FCM token with optional device info
+  const deviceInfo = {
+    userAgent: req.headers['user-agent'],
+    ip: req.ip,
+    timestamp: new Date().toISOString()
+  };
+  
+  const storedToken = await FcmToken.store(fcm_token, req.user.uid, deviceInfo);
+  
+  const responseData = {
+    token_id: storedToken.id,
+    user: {
+      uid: req.user.uid,
+      email: req.user.email,
+      email_verified: req.user.email_verified
+    }
+  };
+  
+  sendSuccess(res, responseData, 'FCM token stored successfully');
+}));
 
 /**
  * @swagger
@@ -222,22 +198,14 @@ router.post('/fcm-token', authenticateToken, validateFcmToken, async (req, res) 
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/debug-token', authenticateToken, async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      message: 'Token is valid',
-      user: req.user,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Debug token error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Debug endpoint failed'
-    });
-  }
-});
+router.get('/debug-token', authenticateToken, asyncHandler(async (req, res) => {
+  const debugData = {
+    user: req.user,
+    timestamp: new Date().toISOString()
+  };
+  
+  sendSuccess(res, debugData, 'Token is valid');
+}));
 
 /**
  * @swagger
@@ -286,33 +254,25 @@ router.get('/debug-token', authenticateToken, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/orders', authenticateToken, async (req, res) => {
-  try {
-    const filters = {};
-    
-    if (req.query.status) {
-      filters.status = req.query.status;
-    }
-    
-    if (req.query.date) {
-      filters.date = req.query.date;
-    }
-
-    const orders = await Order.findAll(filters);
-
-    res.json({
-      success: true,
-      data: orders,
-      count: orders.length
-    });
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch orders'
-    });
+router.get('/orders', authenticateToken, asyncHandler(async (req, res) => {
+  const filters = {};
+  
+  if (req.query.status) {
+    filters.status = req.query.status;
   }
-});
+  
+  if (req.query.date) {
+    filters.date = req.query.date;
+  }
+
+  const orders = await Order.findAll(filters);
+  const responseData = {
+    orders,
+    count: orders.length
+  };
+
+  sendSuccess(res, responseData);
+}));
 
 /**
  * @swagger

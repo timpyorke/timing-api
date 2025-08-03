@@ -1,11 +1,10 @@
-const pool = require('../config/database');
+const { executeQuery, executeTransaction } = require('../utils/database');
+const { ORDER_STATUS } = require('../utils/constants');
+const { buildWhereClause, buildOrderByClause } = require('../utils/queryOptimizer');
 
 class Order {
   static async create(orderData) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      
+    return executeTransaction(async (client) => {
       // Insert order
       const orderQuery = `
         INSERT INTO orders (customer_id, customer_info, status, total)
@@ -15,7 +14,7 @@ class Order {
       const orderResult = await client.query(orderQuery, [
         orderData.customer_id || null,
         orderData.customer_info,
-        'pending',
+        ORDER_STATUS.PENDING,
         orderData.total
       ]);
       
@@ -36,14 +35,8 @@ class Order {
         ]);
       }
       
-      await client.query('COMMIT');
       return await this.findById(order.id);
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   static async findById(id) {
@@ -70,12 +63,12 @@ class Order {
       WHERE o.id = $1
       GROUP BY o.id
     `;
-    const result = await pool.query(query, [id]);
+    const result = await executeQuery(query, [id]);
     return result.rows[0];
   }
 
-  static async findAll(filters = {}) {
-    let query = `
+  static async findAll(filters = {}, sortBy = 'created_at', sortOrder = 'DESC') {
+    const baseQuery = `
       SELECT 
         o.*,
         COALESCE(
@@ -97,31 +90,22 @@ class Order {
       LEFT JOIN menus b ON oi.menu_id = b.id
     `;
     
-    const conditions = [];
-    const values = [];
+    // Build WHERE clause using optimizer
+    const prefixedFilters = {};
+    Object.entries(filters).forEach(([key, value]) => {
+      if (key === 'status' || key === 'customer_id') {
+        prefixedFilters[`o.${key}`] = value;
+      } else if (key === 'date') {
+        prefixedFilters.date = value; // Special handling in buildWhereClause
+      }
+    });
     
-    if (filters.status) {
-      conditions.push(`o.status = $${values.length + 1}`);
-      values.push(filters.status);
-    }
+    const { whereClause, values } = buildWhereClause(prefixedFilters);
+    const orderByClause = buildOrderByClause(`o.${sortBy}`, sortOrder, ['created_at', 'updated_at', 'total', 'status']);
     
-    if (filters.date) {
-      conditions.push(`DATE(o.created_at) = $${values.length + 1}`);
-      values.push(filters.date);
-    }
+    const query = `${baseQuery} ${whereClause} GROUP BY o.id ${orderByClause}`;
     
-    if (filters.customer_id) {
-      conditions.push(`o.customer_id = $${values.length + 1}`);
-      values.push(filters.customer_id);
-    }
-    
-    if (conditions.length > 0) {
-      query += ` WHERE ${conditions.join(' AND ')}`;
-    }
-    
-    query += ` GROUP BY o.id ORDER BY o.created_at DESC`;
-    
-    const result = await pool.query(query, values);
+    const result = await executeQuery(query, values);
     return result.rows;
   }
 
@@ -132,15 +116,12 @@ class Order {
       WHERE id = $2 
       RETURNING *
     `;
-    const result = await pool.query(query, [status, id]);
+    const result = await executeQuery(query, [status, id]);
     return result.rows[0];
   }
 
   static async update(id, orderData) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      
+    return executeTransaction(async (client) => {
       // Update order basic info
       const orderQuery = `
         UPDATE orders 
@@ -179,21 +160,12 @@ class Order {
         }
       }
       
-      await client.query('COMMIT');
       return await this.findById(id);
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   static async delete(id) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      
+    return executeTransaction(async (client) => {
       // Get order before deletion for return value
       const order = await this.findById(id);
       if (!order) {
@@ -207,14 +179,8 @@ class Order {
       const query = 'DELETE FROM orders WHERE id = $1 RETURNING *';
       await client.query(query, [id]);
       
-      await client.query('COMMIT');
       return order; // Return the full order with items
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   static async getTodaySales() {
@@ -222,12 +188,12 @@ class Order {
       SELECT 
         COUNT(*) as total_orders,
         COALESCE(SUM(total), 0) as total_revenue,
-        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_orders,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_orders
+        COUNT(CASE WHEN status = $1 THEN 1 END) as completed_orders,
+        COUNT(CASE WHEN status = $2 THEN 1 END) as pending_orders
       FROM orders 
       WHERE DATE(created_at) = CURRENT_DATE
     `;
-    const result = await pool.query(query);
+    const result = await executeQuery(query, [ORDER_STATUS.COMPLETED, ORDER_STATUS.PENDING]);
     return result.rows[0];
   }
 }

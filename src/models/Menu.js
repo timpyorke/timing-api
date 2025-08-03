@@ -1,23 +1,23 @@
-const pool = require('../config/database');
+const { executeQuery } = require('../utils/database');
 
 class Menu {
   static async findAll(activeOnly = true) {
     const query = activeOnly 
       ? 'SELECT * FROM menus WHERE active = true ORDER BY category, name'
       : 'SELECT * FROM menus ORDER BY category, name';
-    const result = await pool.query(query);
+    const result = await executeQuery(query);
     return result.rows;
   }
 
   static async findById(id) {
     const query = 'SELECT * FROM menus WHERE id = $1';
-    const result = await pool.query(query, [id]);
+    const result = await executeQuery(query, [id]);
     return result.rows[0];
   }
 
   static async findByIds(ids) {
     const query = 'SELECT * FROM menus WHERE id = ANY($1::int[])';
-    const result = await pool.query(query, [ids]);
+    const result = await executeQuery(query, [ids]);
     return result.rows;
   }
 
@@ -27,7 +27,7 @@ class Menu {
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
-    const result = await pool.query(query, [
+    const result = await executeQuery(query, [
       menuData.name,
       menuData.category,
       menuData.base_price,
@@ -45,7 +45,7 @@ class Menu {
       WHERE id = $7
       RETURNING *
     `;
-    const result = await pool.query(query, [
+    const result = await executeQuery(query, [
       menuData.name,
       menuData.category,
       menuData.base_price,
@@ -59,7 +59,7 @@ class Menu {
 
   static async delete(id) {
     const query = 'DELETE FROM menus WHERE id = $1 RETURNING *';
-    const result = await pool.query(query, [id]);
+    const result = await executeQuery(query, [id]);
     return result.rows[0];
   }
 
@@ -81,7 +81,7 @@ class Menu {
       GROUP BY category
       ORDER BY category
     `;
-    const result = await pool.query(query);
+    const result = await executeQuery(query);
     return result.rows;
   }
 }
