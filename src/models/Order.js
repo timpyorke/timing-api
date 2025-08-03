@@ -231,7 +231,7 @@ class Order {
       ORDER BY order_date DESC
     `;
     
-    const result = await pool.query(query, values);
+    const result = await executeQuery(query, values);
     
     // Calculate summary metrics
     const summaryQuery = `
@@ -249,7 +249,7 @@ class Order {
       ${dateCondition}
     `;
     
-    const summaryResult = await pool.query(summaryQuery, values);
+    const summaryResult = await executeQuery(summaryQuery, values);
     
     return {
       summary: summaryResult.rows[0],
@@ -296,7 +296,7 @@ class Order {
       LIMIT $${limitIndex}
     `;
     
-    const result = await pool.query(query, values);
+    const result = await executeQuery(query, values);
     return result.rows;
   }
 }

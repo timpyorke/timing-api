@@ -1,5 +1,6 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const { admin } = require('../config/firebase'); // Import initialized Firebase admin
 
 class WebSocketService {
   constructor() {
@@ -18,20 +19,38 @@ class WebSocketService {
     // Admin namespace for authenticated connections
     const adminNamespace = this.io.of('/admin');
     
-    adminNamespace.use((socket, next) => {
-      const token = socket.handshake.auth.token;
+    adminNamespace.use(async (socket, next) => {
+      // Try to get token from handshake auth first, then from query parameters
+      const token = socket.handshake.auth.token || socket.handshake.query.token;
       
       if (!token) {
+        console.log('❌ WebSocket: No token provided');
         return next(new Error('Authentication error: No token provided'));
       }
 
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        socket.userId = decoded.id;
-        socket.username = decoded.username;
-        next();
+        console.log('🔑 WebSocket: Verifying token:', token.substring(0, 20) + '...');
+        
+        // Try Firebase token verification first
+        try {
+          const decodedToken = await admin.auth().verifyIdToken(token);
+          socket.userId = decodedToken.uid;
+          socket.username = decodedToken.email || decodedToken.name || 'admin';
+          console.log('✅ WebSocket: Firebase token verified for user:', socket.username);
+          return next();
+        } catch (firebaseError) {
+          console.log('⚠️ WebSocket: Firebase token verification failed, trying JWT:', firebaseError.message);
+          
+          // Fallback to JWT verification
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          socket.userId = decoded.id;
+          socket.username = decoded.username;
+          console.log('✅ WebSocket: JWT token verified for user:', socket.username);
+          return next();
+        }
       } catch (err) {
-        next(new Error('Authentication error: Invalid token'));
+        console.error('❌ WebSocket: Authentication failed:', err.message);
+        return next(new Error('Authentication error: Invalid token'));
       }
     });
 
