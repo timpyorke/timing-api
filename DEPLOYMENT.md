@@ -1,8 +1,8 @@
 # Deployment Guide
 
-## Quick Deploy Options
+## Railway Deployment
 
-### 1. Railway (Recommended)
+### Setup
 ```bash
 # Install Railway CLI
 npm install -g @railway/cli
@@ -12,24 +12,9 @@ railway login
 railway link
 railway up
 ```
-Set environment variables in Railway dashboard.
 
-### 2. Render
-1. Connect GitHub repository
-2. Use `render.yaml` configuration
-3. Set Firebase environment variables manually
-
-### 3. Docker
-```bash
-# Local Docker run
-docker build -t timing-api .
-docker run -p 8000:8000 --env-file .env timing-api
-
-# Docker Compose (with local PostgreSQL)
-docker-compose up -d
-```
-
-## Required Environment Variables
+### Environment Variables
+Set these in Railway dashboard:
 
 ```env
 NODE_ENV=production
@@ -45,30 +30,21 @@ FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@timing-48aba.iam.gserviceaccount.com
 FIREBASE_CLIENT_ID=your-client-id
 ```
 
-## Production Checklist
+### Post-Deployment Setup
 
-- [ ] Set `NODE_ENV=production`
-- [ ] Use strong JWT secret
-- [ ] Configure CORS origins properly
-- [ ] Set up SSL/HTTPS
-- [ ] Configure proper database connection pooling
-- [ ] Set up monitoring and logging
-- [ ] Test Firebase notifications
-- [ ] Verify all API endpoints work
-- [ ] Run health checks
-
-## Notification Setup
-
-1. Firebase Admin SDK is configured
-2. FCM tokens stored in database
-3. Notifications sent on new orders
-4. Test endpoint: `POST /api/admin/test-notification`
-
-## Database Migration
-
-Run after deployment:
+1. Initialize database:
 ```bash
 npm run init-db
 ```
 
-Or use the SQL file in `src/models/database.sql` to initialize your database schema.
+2. Test notifications:
+```bash
+curl -X POST https://your-app.railway.app/api/admin/test-notification
+```
+
+### Production Checklist
+- [ ] Environment variables set in Railway
+- [ ] Database schema initialized
+- [ ] Firebase notifications working
+- [ ] API endpoints tested
+- [ ] Health check passing
