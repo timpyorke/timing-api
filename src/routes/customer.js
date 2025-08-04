@@ -48,13 +48,16 @@ const CACHE_TIME_MS = 5 * 60 * 1000; // 5 minutes
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/menu', asyncHandler(async (req, res) => {
-  const cachedMenu = cache.get(CACHE_KEY);
+  const locale = req.locale || 'en';
+  const cacheKey = `${CACHE_KEY}-${locale}`;
+  
+  const cachedMenu = cache.get(cacheKey);
   if (cachedMenu) {
     return sendSuccess(res, cachedMenu);
   }
 
-  const menu = await Menu.getMenuByCategory();
-  cache.put(CACHE_KEY, menu, CACHE_TIME_MS);
+  const menu = await Menu.getMenuByCategory(locale);
+  cache.put(cacheKey, menu, CACHE_TIME_MS);
 
   sendSuccess(res, menu);
 }));
@@ -99,7 +102,8 @@ router.get('/menu', asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/menu/:id', validateId, asyncHandler(async (req, res) => {
-  const menuItem = await Menu.findById(req.params.id);
+  const locale = req.locale || 'en';
+  const menuItem = await Menu.findById(req.params.id, locale);
   
   if (!menuItem || !menuItem.active) {
     return sendError(res, ERROR_MESSAGES.MENU_ITEM_NOT_FOUND, 404);
@@ -150,16 +154,20 @@ router.get('/menu/:id', validateId, asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
+  const locale = req.locale || 'en';
   const orderData = {
     customer_id: req.body.customer_id,
     customer_info: req.body.customer_info,
     items: req.body.items,
-    total: req.body.total
+    total: req.body.total,
+    customer_locale: locale,
+    notes: req.body.notes,
+    notes_th: req.body.notes_th
   };
 
   // Validate that menu items exist and calculate total
   const itemIds = orderData.items.map(item => item.menu_id);
-  const menuItems = await Menu.findByIds(itemIds);
+  const menuItems = await Menu.findByIds(itemIds, locale);
   const menuItemsById = menuItems.reduce((acc, item) => {
     acc[item.id] = item;
     return acc;
@@ -193,7 +201,8 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
 
   // Send notification to admins
   try {
-    await NotificationService.sendOrderNotification(order);
+    const locale = req.locale || 'en';
+    await NotificationService.sendOrderNotification(order, locale);
     console.log(`Notification sent successfully for order ${order.id}`);
   } catch (notificationError) {
     console.error('Failed to send notification for order', order.id, ':', notificationError.message);
@@ -244,19 +253,24 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/orders/:id/status', validateId, asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id);
+  const locale = req.locale || 'en';
+  const order = await Order.findById(req.params.id, locale);
   
   if (!order) {
     return sendError(res, ERROR_MESSAGES.ORDER_NOT_FOUND, 404);
   }
 
+  // The order now includes localized fields from the model
   const orderStatus = {
     id: order.id,
     status: order.status,
+    status_localized: order.status_localized,
     created_at: order.created_at,
     updated_at: order.updated_at,
     total: order.total,
     customer_info: order.customer_info,
+    customer_locale: order.customer_locale,
+    notes_localized: order.notes_localized,
     items: order.items
   };
 
@@ -299,7 +313,8 @@ router.get('/orders/:id/status', validateId, asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/orders/customer/:customer_id', asyncHandler(async (req, res) => {
-  const orders = await Order.findAll({ customer_id: req.params.customer_id });
+  const locale = req.locale || 'en';
+  const orders = await Order.findAll({ customer_id: req.params.customer_id }, 'created_at', 'DESC', locale);
   sendSuccess(res, orders);
 }));
 

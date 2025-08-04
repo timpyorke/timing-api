@@ -26,6 +26,9 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Locale middleware
+app.use(require('./middleware/locale'));
+
 // Serve static files
 app.use(express.static('public'));
 

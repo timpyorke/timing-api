@@ -7,15 +7,18 @@ class Order {
     return executeTransaction(async (client) => {
       // Insert order
       const orderQuery = `
-        INSERT INTO orders (customer_id, customer_info, status, total)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO orders (customer_id, customer_info, status, total, customer_locale, notes, notes_th)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `;
       const orderResult = await client.query(orderQuery, [
         orderData.customer_id || null,
         orderData.customer_info,
         ORDER_STATUS.PENDING,
-        orderData.total
+        orderData.total,
+        orderData.customer_locale || 'en',
+        orderData.notes || null,
+        orderData.notes_th || null
       ]);
       
       const order = orderResult.rows[0];
@@ -45,6 +48,9 @@ class Order {
                 'id', oi.id,
                 'menu_id', oi.menu_id,
                 'menu_name', b.name,
+                'menu_name_th', b.name_th,
+                'menu_description', b.description,
+                'menu_description_th', b.description_th,
                 'image_url', b.image_url,
                 'customizations', oi.customizations,
                 'quantity', oi.quantity,
@@ -60,11 +66,14 @@ class Order {
         GROUP BY o.id
       `;
       const result = await client.query(query, [order.id]);
-      return result.rows[0];
+      const orderWithItems = result.rows[0];
+      
+      // Add localized fields
+      return this.addLocalizedFields(orderWithItems, orderWithItems.customer_locale || 'en');
     });
   }
 
-  static async findById(id) {
+  static async findById(id, locale = null) {
     const query = `
       SELECT 
         o.*,
@@ -74,6 +83,9 @@ class Order {
               'id', oi.id,
               'menu_id', oi.menu_id,
               'menu_name', b.name,
+              'menu_name_th', b.name_th,
+              'menu_description', b.description,
+              'menu_description_th', b.description_th,
               'image_url', b.image_url,
               'customizations', oi.customizations,
               'quantity', oi.quantity,
@@ -89,10 +101,18 @@ class Order {
       GROUP BY o.id
     `;
     const result = await executeQuery(query, [id]);
-    return result.rows[0];
+    const order = result.rows[0];
+    
+    if (order) {
+      // Use provided locale or fallback to customer's locale
+      const orderLocale = locale || order.customer_locale || 'en';
+      return this.addLocalizedFields(order, orderLocale);
+    }
+    
+    return order;
   }
 
-  static async findAll(filters = {}, sortBy = 'created_at', sortOrder = 'DESC') {
+  static async findAll(filters = {}, sortBy = 'created_at', sortOrder = 'DESC', locale = null) {
     const baseQuery = `
       SELECT 
         o.*,
@@ -102,6 +122,9 @@ class Order {
               'id', oi.id,
               'menu_id', oi.menu_id,
               'menu_name', b.name,
+              'menu_name_th', b.name_th,
+              'menu_description', b.description,
+              'menu_description_th', b.description_th,
               'image_url', b.image_url,
               'customizations', oi.customizations,
               'quantity', oi.quantity,
@@ -131,7 +154,12 @@ class Order {
     const query = `${baseQuery} ${whereClause} GROUP BY o.id ${orderByClause}`;
     
     const result = await executeQuery(query, values);
-    return result.rows;
+    
+    // Add localized fields to each order
+    return result.rows.map(order => {
+      const orderLocale = locale || order.customer_locale || 'en';
+      return this.addLocalizedFields(order, orderLocale);
+    });
   }
 
   static async updateStatus(id, status) {
@@ -150,14 +178,18 @@ class Order {
       // Update order basic info
       const orderQuery = `
         UPDATE orders 
-        SET customer_id = $1, customer_info = $2, total = $3, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $4 
+        SET customer_id = $1, customer_info = $2, total = $3, customer_locale = $4, 
+            notes = $5, notes_th = $6, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $7 
         RETURNING *
       `;
       const orderResult = await client.query(orderQuery, [
         orderData.customer_id || null,
         orderData.customer_info,
         orderData.total,
+        orderData.customer_locale || 'en',
+        orderData.notes || null,
+        orderData.notes_th || null,
         id
       ]);
       
@@ -323,6 +355,48 @@ class Order {
     
     const result = await executeQuery(query, values);
     return result.rows;
+  }
+
+  static addLocalizedFields(order, locale = 'en') {
+    if (!order) return order;
+    
+    const localization = require('../utils/localization');
+    const localized = { ...order };
+    
+    // Add localized status
+    localized.status_localized = localization.getOrderStatusTranslation(order.status, locale);
+    
+    // Add localized notes
+    if (locale === 'th' && order.notes_th) {
+      localized.notes_localized = order.notes_th;
+    } else if (order.notes) {
+      localized.notes_localized = order.notes;
+    }
+    
+    // Add localized fields to order items
+    if (order.items && Array.isArray(order.items)) {
+      localized.items = order.items.map(item => {
+        const localizedItem = { ...item };
+        
+        // Add localized menu name
+        if (locale === 'th' && item.menu_name_th) {
+          localizedItem.menu_name_localized = item.menu_name_th;
+        } else {
+          localizedItem.menu_name_localized = item.menu_name;
+        }
+        
+        // Add localized menu description
+        if (locale === 'th' && item.menu_description_th) {
+          localizedItem.menu_description_localized = item.menu_description_th;
+        } else if (item.menu_description) {
+          localizedItem.menu_description_localized = item.menu_description;
+        }
+        
+        return localizedItem;
+      });
+    }
+    
+    return localized;
   }
 }
 

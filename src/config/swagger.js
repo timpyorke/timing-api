@@ -85,14 +85,55 @@ const options = {
               type: 'string',
               example: 'Espresso'
             },
+            name_th: {
+              type: 'string',
+              nullable: true,
+              example: 'เอสเปรสโซ่'
+            },
+            name_localized: {
+              type: 'string',
+              example: 'Espresso',
+              description: 'Localized name based on request locale'
+            },
+            description: {
+              type: 'string',
+              nullable: true,
+              example: 'Rich and bold coffee shot'
+            },
+            description_th: {
+              type: 'string',
+              nullable: true,
+              example: 'กาแฟเข้มข้นและหอมกรุ่น'
+            },
+            description_localized: {
+              type: 'string',
+              nullable: true,
+              example: 'Rich and bold coffee shot',
+              description: 'Localized description based on request locale'
+            },
             category: {
               type: 'string',
-              example: 'Coffee'
+              example: 'coffee'
+            },
+            category_th: {
+              type: 'string',
+              nullable: true,
+              example: 'กาแฟ'
+            },
+            category_localized: {
+              type: 'string',
+              example: 'Coffee',
+              description: 'Localized category based on request locale'
             },
             base_price: {
               type: 'number',
               format: 'decimal',
               example: 3.50
+            },
+            image_url: {
+              type: 'string',
+              nullable: true,
+              example: 'https://example.com/espresso.jpg'
             },
             customizations: {
               type: 'object',
@@ -104,6 +145,16 @@ const options = {
             active: {
               type: 'boolean',
               example: true
+            },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2025-08-04T10:30:00Z'
+            },
+            updated_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2025-08-04T10:30:00Z'
             }
           }
         },
@@ -112,7 +163,12 @@ const options = {
           properties: {
             category: {
               type: 'string',
-              example: 'Coffee'
+              example: 'coffee'
+            },
+            category_localized: {
+              type: 'string',
+              example: 'Coffee',
+              description: 'Localized category name based on request locale'
             },
             items: {
               type: 'array',
@@ -121,6 +177,75 @@ const options = {
               }
             }
           }
+        },
+        CreateMenuItemRequest: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              example: 'Cappuccino',
+              description: 'Menu item name in English'
+            },
+            name_th: {
+              type: 'string',
+              nullable: true,
+              example: 'คาปูชิโน่',
+              description: 'Menu item name in Thai (optional)'
+            },
+            description: {
+              type: 'string',
+              nullable: true,
+              example: 'Rich espresso with steamed milk and foam',
+              description: 'Menu item description in English (optional)'
+            },
+            description_th: {
+              type: 'string',
+              nullable: true,
+              example: 'เอสเปรสโซ่เข้มข้นผสมนมร้อนและฟองนม',
+              description: 'Menu item description in Thai (optional)'
+            },
+            category: {
+              type: 'string',
+              example: 'coffee',
+              description: 'Menu item category in English'
+            },
+            category_th: {
+              type: 'string',
+              nullable: true,
+              example: 'กาแฟ',
+              description: 'Menu item category in Thai (optional)'
+            },
+            base_price: {
+              type: 'number',
+              format: 'decimal',
+              minimum: 0,
+              example: 4.50,
+              description: 'Base price of the menu item'
+            },
+            image_url: {
+              type: 'string',
+              nullable: true,
+              format: 'uri',
+              example: 'https://example.com/cappuccino.jpg',
+              description: 'URL to menu item image (optional)'
+            },
+            customizations: {
+              type: 'object',
+              nullable: true,
+              example: {
+                sizes: ['Small', 'Medium', 'Large'],
+                extras: ['Extra Shot', 'Decaf', 'Oat Milk']
+              },
+              description: 'Available customizations (optional)'
+            },
+            active: {
+              type: 'boolean',
+              example: true,
+              default: true,
+              description: 'Whether the menu item is active/available'
+            }
+          },
+          required: ['name', 'category', 'base_price']
         },
         OrderItem: {
           type: 'object',
