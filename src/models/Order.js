@@ -7,15 +7,16 @@ class Order {
     return executeTransaction(async (client) => {
       // Insert order
       const orderQuery = `
-        INSERT INTO orders (customer_id, customer_info, status, total)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO orders (customer_id, customer_info, status, total, notes)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING *
       `;
       const orderResult = await client.query(orderQuery, [
         orderData.customer_id || null,
         orderData.customer_info,
         ORDER_STATUS.PENDING,
-        orderData.total
+        orderData.total,
+        orderData.notes || null,
       ]);
       
       const order = orderResult.rows[0];
@@ -44,7 +45,10 @@ class Order {
               json_build_object(
                 'id', oi.id,
                 'menu_id', oi.menu_id,
-                'menu_name', b.name,
+                'menu_name', b.name_en,
+                'menu_name_th', b.name_th,
+                'menu_description', b.description_en,
+                'menu_description_th', b.description_th,
                 'image_url', b.image_url,
                 'customizations', oi.customizations,
                 'quantity', oi.quantity,
@@ -60,11 +64,14 @@ class Order {
         GROUP BY o.id
       `;
       const result = await client.query(query, [order.id]);
-      return result.rows[0];
+      const orderWithItems = result.rows[0];
+      
+      // Add localized fields
+      return this.addLocalizedFields(orderWithItems, orderWithItems.customer_locale || 'en');
     });
   }
 
-  static async findById(id) {
+  static async findById(id, locale = null) {
     const query = `
       SELECT 
         o.*,
@@ -73,7 +80,10 @@ class Order {
             json_build_object(
               'id', oi.id,
               'menu_id', oi.menu_id,
-              'menu_name', b.name,
+              'menu_name', b.name_en,
+              'menu_name_th', b.name_th,
+              'menu_description', b.description_en,
+              'menu_description_th', b.description_th,
               'image_url', b.image_url,
               'customizations', oi.customizations,
               'quantity', oi.quantity,
@@ -89,10 +99,18 @@ class Order {
       GROUP BY o.id
     `;
     const result = await executeQuery(query, [id]);
-    return result.rows[0];
+    const order = result.rows[0];
+    
+    if (order) {
+      // Use provided locale or fallback to customer's locale
+      const orderLocale = locale || order.customer_locale || 'en';
+      return this.addLocalizedFields(order, orderLocale);
+    }
+    
+    return order;
   }
 
-  static async findAll(filters = {}, sortBy = 'created_at', sortOrder = 'DESC') {
+  static async findAll(filters = {}, sortBy = 'created_at', sortOrder = 'DESC', locale = null) {
     const baseQuery = `
       SELECT 
         o.*,
@@ -101,7 +119,10 @@ class Order {
             json_build_object(
               'id', oi.id,
               'menu_id', oi.menu_id,
-              'menu_name', b.name,
+              'menu_name', b.name_en,
+              'menu_name_th', b.name_th,
+              'menu_description', b.description_en,
+              'menu_description_th', b.description_th,
               'image_url', b.image_url,
               'customizations', oi.customizations,
               'quantity', oi.quantity,
@@ -131,7 +152,12 @@ class Order {
     const query = `${baseQuery} ${whereClause} GROUP BY o.id ${orderByClause}`;
     
     const result = await executeQuery(query, values);
-    return result.rows;
+    
+    // Add localized fields to each order
+    return result.rows.map(order => {
+      const orderLocale = locale || order.customer_locale || 'en';
+      return this.addLocalizedFields(order, orderLocale);
+    });
   }
 
   static async updateStatus(id, status) {
@@ -150,14 +176,16 @@ class Order {
       // Update order basic info
       const orderQuery = `
         UPDATE orders 
-        SET customer_id = $1, customer_info = $2, total = $3, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $4 
+        SET customer_id = $1, customer_info = $2, total = $3, 
+            notes = $4, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $5 
         RETURNING *
       `;
       const orderResult = await client.query(orderQuery, [
         orderData.customer_id || null,
         orderData.customer_info,
         orderData.total,
+        orderData.notes || null,
         id
       ]);
       
@@ -222,7 +250,7 @@ class Order {
     return result.rows[0];
   }
 
-  static async getSalesInsights(startDate = null, endDate = null) {
+  static async getSalesInsights(startDate = null, endDate = null, locale = 'en') {
     let dateCondition = '';
     const values = [];
     
@@ -282,7 +310,7 @@ class Order {
     };
   }
 
-  static async getTopSellingItems(startDate = null, endDate = null, limit = 10) {
+  static async getTopSellingItems(startDate = null, endDate = null, limit = 10, locale = 'en') {
     let dateCondition = '';
     const values = [];
     
@@ -300,11 +328,14 @@ class Order {
     values.push(limit);
     const limitIndex = values.length;
 
+    const menuNameField = locale === 'th' ? 'COALESCE(m.name_th, m.name_en)' : 'm.name_en';
+    const categoryField = locale === 'th' ? 'COALESCE(m.category_th, m.category_en)' : 'm.category_en';
+    
     const query = `
       SELECT 
         m.id as menu_id,
-        m.name as menu_name,
-        m.category,
+        ${menuNameField} as menu_name,
+        ${categoryField} as category,
         m.base_price,
         m.image_url,
         SUM(oi.quantity) as total_quantity_sold,
@@ -316,13 +347,65 @@ class Order {
       JOIN orders o ON oi.order_id = o.id
       JOIN menus m ON oi.menu_id = m.id
       ${dateCondition}
-      GROUP BY m.id, m.name, m.category, m.base_price, m.image_url
+      GROUP BY m.id, ${menuNameField}, ${categoryField}, m.base_price, m.image_url
       ORDER BY total_quantity_sold DESC
       LIMIT $${limitIndex}
     `;
     
     const result = await executeQuery(query, values);
     return result.rows;
+  }
+
+  static addLocalizedFields(order, locale = 'en') {
+    if (!order) return order;
+    
+    const localization = require('../utils/localization');
+    const localized = { ...order };
+    
+    // Set localized status directly
+    localized.status = localization.getOrderStatusTranslation(order.status, locale);
+    
+    // Set localized notes directly
+    if (locale === 'th' && order.notes_th) {
+      localized.notes = order.notes_th;
+    } else if (order.notes) {
+      localized.notes = order.notes;
+    } else {
+      localized.notes = null;
+    }
+    
+    // Remove individual language fields for notes
+    delete localized.notes_th;
+    
+    // Localize order items
+    if (order.items && Array.isArray(order.items)) {
+      localized.items = order.items.map(item => {
+        const localizedItem = { ...item };
+        
+        // Set localized menu name directly
+        if (locale === 'th' && item.menu_name_th) {
+          localizedItem.menu_name = item.menu_name_th;
+        } else {
+          localizedItem.menu_name = item.menu_name;
+        }
+        
+        // Set localized menu description directly
+        if (locale === 'th' && item.menu_description_th) {
+          localizedItem.menu_description = item.menu_description_th;
+        } else if (item.menu_description) {
+          localizedItem.menu_description = item.menu_description;
+        } else {
+          localizedItem.menu_description = null;
+        }
+        
+        // Remove individual language fields
+        delete localizedItem.menu_name_th;
+        
+        return localizedItem;
+      });
+    }
+    
+    return localized;
   }
 }
 

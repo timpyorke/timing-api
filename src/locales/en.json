@@ -1,0 +1,40 @@
+{
+  "order_status": {
+    "pending": "Pending",
+    "preparing": "Preparing",
+    "ready": "Ready",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "error_messages": {
+    "unauthorized": "Unauthorized access",
+    "invalid_credentials": "Invalid credentials",
+    "token_expired": "Token expired",
+    "validation_failed": "Validation failed",
+    "order_not_found": "Order not found",
+    "menu_item_not_found": "Menu item not found",
+    "server_error": "Internal server error"
+  },
+  "success_messages": {
+    "order_created": "Order created successfully",
+    "order_updated": "Order updated successfully",
+    "menu_item_created": "Menu item created successfully",
+    "menu_item_updated": "Menu item updated successfully",
+    "menu_item_deleted": "Menu item deleted successfully"
+  },
+  "notifications": {
+    "new_order_title": "New Order",
+    "new_order_body": "Order #{order_id} from {customer_name}",
+    "status_update_title": "Order Status Update",
+    "status_update_body": "Order #{order_id}: {status}"
+  },
+  "menu": {
+    "categories": {
+      "coffee": "Coffee",
+      "tea": "Tea",
+      "dessert": "Dessert",
+      "snack": "Snack",
+      "drink": "Drink"
+    }
+  }
+}

@@ -256,6 +256,7 @@ router.get('/debug-token', authenticateToken, asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/orders', authenticateToken, asyncHandler(async (req, res) => {
+  const locale = req.locale || 'en';
   const filters = {};
   
   if (req.query.status) {
@@ -266,7 +267,7 @@ router.get('/orders', authenticateToken, asyncHandler(async (req, res) => {
     filters.date = req.query.date;
   }
 
-  const orders = await Order.findAll(filters);
+  const orders = await Order.findAll(filters, 'created_at', 'DESC', locale);
   const responseData = {
     orders,
     count: orders.length
@@ -675,7 +676,8 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
  */
 router.get('/menu', authenticateToken, async (req, res) => {
   try {
-    const menuItems = await Menu.findAll(false); // Include inactive items
+    const locale = req.locale || 'en';
+    const menuItems = await Menu.findAll(false, locale); // Include inactive items
     res.json({
       success: true,
       data: menuItems
@@ -769,27 +771,7 @@ router.get('/menu/:id', authenticateToken, validateId, async (req, res) => {
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 example: "Flat White"
- *               category:
- *                 type: string
- *                 example: "Coffee"
- *               base_price:
- *                 type: number
- *                 format: decimal
- *                 example: 4.50
- *               customizations:
- *                 type: object
- *                 example:
- *                   sizes: ["Small", "Medium", "Large"]
- *                   milk: ["Regular", "Oat", "Almond"]
- *               active:
- *                 type: boolean
- *                 example: true
- *             required: [name, category, base_price]
+ *             $ref: '#/components/schemas/CreateMenuItemRequest'
  *     responses:
  *       201:
  *         description: Menu item created successfully
@@ -823,10 +805,18 @@ router.post('/menu', authenticateToken, validateMenu, async (req, res) => {
   try {
     const menuData = {
       name: req.body.name,
+      name_th: req.body.name_th || null,
+      name_en: req.body.name_en || null,
+      description: req.body.description || null,
+      description_th: req.body.description_th || null,
+      description_en: req.body.description_en || null,
       category: req.body.category,
+      category_th: req.body.category_th || null,
+      category_en: req.body.category_en || null,
       base_price: req.body.base_price,
       image_url: req.body.image_url || null,
       customizations: req.body.customizations || {},
+      customizations_en: req.body.customizations_en || {},
       active: req.body.active !== undefined ? req.body.active : true
     };
 
@@ -867,27 +857,7 @@ router.post('/menu', authenticateToken, validateMenu, async (req, res) => {
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 example: "Updated Coffee Name"
- *               category:
- *                 type: string
- *                 example: "Coffee"
- *               base_price:
- *                 type: number
- *                 format: decimal
- *                 example: 5.00
- *               customizations:
- *                 type: object
- *                 example:
- *                   sizes: ["Small", "Medium", "Large", "Extra Large"]
- *                   milk: ["Regular", "Oat", "Almond", "Soy"]
- *               active:
- *                 type: boolean
- *                 example: true
- *             required: [name, category, base_price]
+ *             $ref: '#/components/schemas/CreateMenuItemRequest'
  *     responses:
  *       200:
  *         description: Menu item updated successfully
@@ -938,10 +908,18 @@ router.put('/menu/:id', authenticateToken, validateId, validateMenu, async (req,
 
     const menuData = {
       name: req.body.name,
+      name_th: req.body.name_th || null,
+      name_en: req.body.name_en || null,
+      description: req.body.description || null,
+      description_th: req.body.description_th || null,
+      description_en: req.body.description_en || null,
       category: req.body.category,
+      category_th: req.body.category_th || null,
+      category_en: req.body.category_en || null,
       base_price: req.body.base_price,
       image_url: req.body.image_url || null,
       customizations: req.body.customizations || {},
+      customizations_en: req.body.customizations_en || {},
       active: req.body.active !== undefined ? req.body.active : true
     };
 
@@ -1193,7 +1171,7 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
  */
 router.get('/sales/insights', authenticateToken, async (req, res) => {
   try {
-    const { start_date, end_date } = req.query;
+    const { start_date, end_date, locale = 'en' } = req.query;
     
     // Validate date format if provided
     if (start_date && !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
@@ -1210,7 +1188,7 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
       });
     }
 
-    const salesData = await Order.getSalesInsights(start_date, end_date);
+    const salesData = await Order.getSalesInsights(start_date, end_date, locale);
     
     // Calculate completion rate
     const completionRate = salesData.summary.total_orders > 0 
@@ -1361,7 +1339,7 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
  */
 router.get('/sales/top-items', authenticateToken, async (req, res) => {
   try {
-    const { start_date, end_date, limit = 10 } = req.query;
+    const { start_date, end_date, limit = 10, locale = 'en' } = req.query;
     
     // Validate date format if provided
     if (start_date && !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
@@ -1387,7 +1365,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
       });
     }
 
-    const topItems = await Order.getTopSellingItems(start_date, end_date, limitNum);
+    const topItems = await Order.getTopSellingItems(start_date, end_date, limitNum, locale);
     
     // Determine actual period used
     const actualStartDate = start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];

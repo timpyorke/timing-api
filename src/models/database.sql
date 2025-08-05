@@ -13,10 +13,14 @@ CREATE TABLE fcm_tokens (
 -- Menus table
 CREATE TABLE menus (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    category VARCHAR(50) NOT NULL,
+    name_th VARCHAR(100),
+    name_en VARCHAR(100),
+    category_th VARCHAR(50) NOT NULL,
+    category_en VARCHAR(50) NOT NULL,
     base_price DECIMAL(10,2) NOT NULL,
     image_url TEXT,
+    description_th TEXT,
+    description_en TEXT,
     customizations JSONB DEFAULT '{}',
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -32,6 +36,7 @@ CREATE TABLE orders (
     total DECIMAL(10,2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    note VARCHAR(100),
 );
 
 -- Order items table

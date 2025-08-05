@@ -1,8 +1,9 @@
 const { messaging } = require('../config/firebase');
 const FcmToken = require('../models/FcmToken');
+const localization = require('../utils/localization');
 
 class NotificationService {
-  static async sendOrderNotification(order) {
+  static async sendOrderNotification(order, locale = 'en') {
     try {
       // Validate order object
       if (!order) {
@@ -32,9 +33,15 @@ class NotificationService {
       const customerName = order.customer_info && order.customer_info.name ? order.customer_info.name : 'Customer';
       const orderTotal = parseFloat(order.total) || 0;
 
+      // Get localized notification text
+      const notificationText = localization.getNotificationText('new_order', locale, {
+        order_id: order.id,
+        customer_name: customerName
+      });
+
       const notification = {
-        title: 'New Order Received',
-        body: `Order #${order.id} - ${customerName} - $${orderTotal.toFixed(2)}`
+        title: notificationText.title,
+        body: notificationText.body + ` - $${orderTotal.toFixed(2)}`
       };
 
       const data = {

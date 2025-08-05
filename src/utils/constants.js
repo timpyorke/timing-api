@@ -14,24 +14,24 @@ const NOTIFICATION_TYPES = {
   TEST: 'test'
 };
 
-// Error messages
+// Error message keys (for localization)
 const ERROR_MESSAGES = {
-  UNAUTHORIZED: 'Unauthorized access',
-  INVALID_CREDENTIALS: 'Invalid credentials',
-  TOKEN_EXPIRED: 'Token expired',
-  VALIDATION_FAILED: 'Validation failed',
-  ORDER_NOT_FOUND: 'Order not found',
-  MENU_ITEM_NOT_FOUND: 'Menu item not found',
-  SERVER_ERROR: 'Internal server error'
+  UNAUTHORIZED: 'unauthorized',
+  INVALID_CREDENTIALS: 'invalid_credentials',
+  TOKEN_EXPIRED: 'token_expired',
+  VALIDATION_FAILED: 'validation_failed',
+  ORDER_NOT_FOUND: 'order_not_found',
+  MENU_ITEM_NOT_FOUND: 'menu_item_not_found',
+  SERVER_ERROR: 'server_error'
 };
 
-// Success messages
+// Success message keys (for localization)
 const SUCCESS_MESSAGES = {
-  ORDER_CREATED: 'Order created successfully',
-  ORDER_UPDATED: 'Order updated successfully',
-  MENU_ITEM_CREATED: 'Menu item created successfully',
-  MENU_ITEM_UPDATED: 'Menu item updated successfully',
-  MENU_ITEM_DELETED: 'Menu item deleted successfully'
+  ORDER_CREATED: 'order_created',
+  ORDER_UPDATED: 'order_updated',
+  MENU_ITEM_CREATED: 'menu_item_created',
+  MENU_ITEM_UPDATED: 'menu_item_updated',
+  MENU_ITEM_DELETED: 'menu_item_deleted'
 };
 
 module.exports = {

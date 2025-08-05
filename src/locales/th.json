@@ -1,0 +1,40 @@
+{
+  "order_status": {
+    "pending": "รอดำเนินการ",
+    "preparing": "กำลังเตรียม",
+    "ready": "พร้อมรับ",
+    "completed": "เสร็จสิ้น",
+    "cancelled": "ยกเลิก"
+  },
+  "error_messages": {
+    "unauthorized": "ไม่ได้รับอนุญาตให้เข้าถึง",
+    "invalid_credentials": "ข้อมูลประจำตัวไม่ถูกต้อง",
+    "token_expired": "โทเค็นหมดอายุ",
+    "validation_failed": "การตรวจสอบข้อมูลล้มเหลว",
+    "order_not_found": "ไม่พบคำสั่งซื้อ",
+    "menu_item_not_found": "ไม่พบรายการเมนู",
+    "server_error": "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
+  },
+  "success_messages": {
+    "order_created": "สร้างคำสั่งซื้อสำเร็จ",
+    "order_updated": "อัปเดตคำสั่งซื้อสำเร็จ",
+    "menu_item_created": "สร้างรายการเมนูสำเร็จ",
+    "menu_item_updated": "อัปเดตรายการเมนูสำเร็จ",
+    "menu_item_deleted": "ลบรายการเมนูสำเร็จ"
+  },
+  "notifications": {
+    "new_order_title": "คำสั่งซื้อใหม่",
+    "new_order_body": "คำสั่งซื้อ #{order_id} จาก {customer_name}",
+    "status_update_title": "อัปเดตสถานะคำสั่งซื้อ",
+    "status_update_body": "คำสั่งซื้อ #{order_id}: {status}"
+  },
+  "menu": {
+    "categories": {
+      "coffee": "กาแฟ",
+      "tea": "ชา",
+      "dessert": "ของหวาน",
+      "snack": "ขนม",
+      "drink": "เครื่องดื่ม"
+    }
+  }
+}

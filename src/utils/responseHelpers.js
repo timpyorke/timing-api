@@ -1,20 +1,24 @@
 const { ERROR_MESSAGES } = require('./constants');
+const localization = require('./localization');
 
 /**
  * Standard success response structure
  * @param {Object} res - Express response object
  * @param {*} data - Response data
- * @param {string} message - Success message
+ * @param {string} messageKey - Success message key for localization
  * @param {number} statusCode - HTTP status code (default: 200)
+ * @param {Object} messageParams - Parameters for message interpolation
  */
-const sendSuccess = (res, data, message = null, statusCode = 200) => {
+const sendSuccess = (res, data, messageKey = null, statusCode = 200, messageParams = {}) => {
+  const req = res.req;
+  const locale = req ? localization.getLocaleFromRequest(req) : 'en';
   const response = {
     success: true,
     data
   };
   
-  if (message) {
-    response.message = message;
+  if (messageKey) {
+    response.message = localization.getSuccessMessage(messageKey, locale, messageParams);
   }
   
   return res.status(statusCode).json(response);
@@ -23,14 +27,17 @@ const sendSuccess = (res, data, message = null, statusCode = 200) => {
 /**
  * Standard error response structure
  * @param {Object} res - Express response object
- * @param {string} error - Error message
+ * @param {string} errorKey - Error message key for localization
  * @param {number} statusCode - HTTP status code (default: 500)
  * @param {*} details - Additional error details (for validation errors)
+ * @param {Object} messageParams - Parameters for message interpolation
  */
-const sendError = (res, error = ERROR_MESSAGES.SERVER_ERROR, statusCode = 500, details = null) => {
+const sendError = (res, errorKey = ERROR_MESSAGES.SERVER_ERROR, statusCode = 500, details = null, messageParams = {}) => {
+  const req = res.req;
+  const locale = req ? localization.getLocaleFromRequest(req) : 'en';
   const response = {
     success: false,
-    error
+    error: localization.getErrorMessage(errorKey, locale, messageParams)
   };
   
   if (details) {
