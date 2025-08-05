@@ -26,12 +26,12 @@ const validateOrder = [
 
 // Menu validation
 const validateMenu = [
-  body('name').notEmpty().withMessage('Menu item name is required'),
-  body('name_th').optional().isString().withMessage('Thai name must be a string'),
-  body('description').optional().isString().withMessage('Description must be a string'),
+  body('name_en').notEmpty().withMessage('English menu item name is required'),
+  body('name_th').notEmpty().withMessage('Thai menu item name is required'),
+  body('description_en').optional().isString().withMessage('English description must be a string'),
   body('description_th').optional().isString().withMessage('Thai description must be a string'),
-  body('category').notEmpty().withMessage('Category is required'),
-  body('category_th').optional().isString().withMessage('Thai category must be a string'),
+  body('category_en').notEmpty().withMessage('English category is required'),
+  body('category_th').notEmpty().withMessage('Thai category is required'),
   body('base_price').isFloat({ min: 0 }).withMessage('Base price must be a positive number'),
   body('image_url').optional().custom((value) => {
     if (value === null || value === '' || value === undefined) {
