@@ -82,7 +82,12 @@ app.use((err, req, res, next) => {
 // Initialize WebSocket service
 websocketService.initialize(server);
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`WebSocket service available at ws://localhost:${PORT}/admin`);
-});
+// Only start server if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`WebSocket service available at ws://localhost:${PORT}/admin`);
+  });
+}
+
+module.exports = app;

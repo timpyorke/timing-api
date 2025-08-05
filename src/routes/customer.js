@@ -264,13 +264,11 @@ router.get('/orders/:id/status', validateId, asyncHandler(async (req, res) => {
   const orderStatus = {
     id: order.id,
     status: order.status,
-    status_localized: order.status_localized,
     created_at: order.created_at,
     updated_at: order.updated_at,
     total: order.total,
     customer_info: order.customer_info,
-    customer_locale: order.customer_locale,
-    notes_localized: order.notes_localized,
+    notes: order.notes,
     items: order.items
   };
 

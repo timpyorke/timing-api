@@ -18,7 +18,11 @@ const authenticateToken = async (req, res, next) => {
       req.user = decoded;
       return next();
     } catch (jwtError) {
-      // If JWT fails, try Firebase token
+      // If JWT fails, try Firebase token (only if Firebase is available)
+      if (!admin) {
+        console.log('🔐 JWT failed and Firebase is disabled');
+        return sendError(res, ERROR_MESSAGES.UNAUTHORIZED, 401);
+      }
       console.log('🔐 JWT failed, trying Firebase token verification');
     }
     

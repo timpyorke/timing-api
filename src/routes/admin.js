@@ -806,13 +806,17 @@ router.post('/menu', authenticateToken, validateMenu, async (req, res) => {
     const menuData = {
       name: req.body.name,
       name_th: req.body.name_th || null,
+      name_en: req.body.name_en || null,
       description: req.body.description || null,
       description_th: req.body.description_th || null,
+      description_en: req.body.description_en || null,
       category: req.body.category,
       category_th: req.body.category_th || null,
+      category_en: req.body.category_en || null,
       base_price: req.body.base_price,
       image_url: req.body.image_url || null,
       customizations: req.body.customizations || {},
+      customizations_en: req.body.customizations_en || {},
       active: req.body.active !== undefined ? req.body.active : true
     };
 
@@ -905,13 +909,17 @@ router.put('/menu/:id', authenticateToken, validateId, validateMenu, async (req,
     const menuData = {
       name: req.body.name,
       name_th: req.body.name_th || null,
+      name_en: req.body.name_en || null,
       description: req.body.description || null,
       description_th: req.body.description_th || null,
+      description_en: req.body.description_en || null,
       category: req.body.category,
       category_th: req.body.category_th || null,
+      category_en: req.body.category_en || null,
       base_price: req.body.base_price,
       image_url: req.body.image_url || null,
       customizations: req.body.customizations || {},
+      customizations_en: req.body.customizations_en || {},
       active: req.body.active !== undefined ? req.body.active : true
     };
 
@@ -1163,7 +1171,7 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
  */
 router.get('/sales/insights', authenticateToken, async (req, res) => {
   try {
-    const { start_date, end_date } = req.query;
+    const { start_date, end_date, locale = 'en' } = req.query;
     
     // Validate date format if provided
     if (start_date && !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
@@ -1180,7 +1188,7 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
       });
     }
 
-    const salesData = await Order.getSalesInsights(start_date, end_date);
+    const salesData = await Order.getSalesInsights(start_date, end_date, locale);
     
     // Calculate completion rate
     const completionRate = salesData.summary.total_orders > 0 
@@ -1331,7 +1339,7 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
  */
 router.get('/sales/top-items', authenticateToken, async (req, res) => {
   try {
-    const { start_date, end_date, limit = 10 } = req.query;
+    const { start_date, end_date, limit = 10, locale = 'en' } = req.query;
     
     // Validate date format if provided
     if (start_date && !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
@@ -1357,7 +1365,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
       });
     }
 
-    const topItems = await Order.getTopSellingItems(start_date, end_date, limitNum);
+    const topItems = await Order.getTopSellingItems(start_date, end_date, limitNum, locale);
     
     // Determine actual period used
     const actualStartDate = start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
