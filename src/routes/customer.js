@@ -3,7 +3,7 @@ const router = express.Router();
 const cache = require('memory-cache');
 const Menu = require('../models/Menu');
 const Order = require('../models/Order');
-const NotificationService = require('../services/notificationService');
+const OneSignalNotificationService = require('../services/oneSignalNotificationService');
 const websocketService = require('../services/websocketService');
 const { validateOrder, validateId } = require('../middleware/validation');
 const { sendSuccess, sendError, handleDatabaseError, asyncHandler } = require('../utils/responseHelpers');
@@ -202,7 +202,7 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
   // Send notification to admins
   try {
     const locale = req.locale || 'en';
-    await NotificationService.sendOrderNotification(order, locale);
+    await OneSignalNotificationService.sendOrderNotification(order, locale);
     console.log(`Notification sent successfully for order ${order.id}`);
   } catch (notificationError) {
     console.error('Failed to send notification for order', order.id, ':', notificationError.message);

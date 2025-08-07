@@ -57,7 +57,15 @@ const validateId = [
   handleValidationErrors
 ];
 
-// FCM token validation
+// OneSignal player ID validation
+const validateOneSignalPlayerId = [
+  body('player_id').notEmpty().withMessage('OneSignal player ID is required')
+    .isString().withMessage('OneSignal player ID must be a string')
+    .isLength({ min: 10 }).withMessage('OneSignal player ID is too short'),
+  handleValidationErrors
+];
+
+// FCM token validation (kept for backward compatibility)
 const validateFcmToken = [
   body('fcm_token').notEmpty().withMessage('FCM token is required')
     .isString().withMessage('FCM token must be a string')
@@ -69,7 +77,7 @@ const validateFcmToken = [
 const validateLogin = [
   body('username').notEmpty().withMessage('Username is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('fcm_token').optional().isString().withMessage('FCM token must be a string'),
+  body('player_id').optional().isString().withMessage('OneSignal player ID must be a string'),
   handleValidationErrors
 ];
 
@@ -80,5 +88,6 @@ module.exports = {
   validateOrderStatus,
   validateId,
   validateFcmToken,
+  validateOneSignalPlayerId,
   handleValidationErrors
 };

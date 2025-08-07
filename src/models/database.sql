@@ -1,6 +1,16 @@
 -- Database schema for timing API
 
--- FCM tokens table (separate storage for push notifications)
+-- OneSignal tokens table (separate storage for push notifications)
+CREATE TABLE onesignal_tokens (
+    id SERIAL PRIMARY KEY,
+    player_id TEXT NOT NULL UNIQUE,
+    user_id VARCHAR(128),
+    device_info JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- FCM tokens table (kept for backward compatibility during migration)
 CREATE TABLE fcm_tokens (
     id SERIAL PRIMARY KEY,
     token TEXT NOT NULL UNIQUE,
@@ -35,8 +45,8 @@ CREATE TABLE orders (
     status VARCHAR(20) DEFAULT 'pending',
     total DECIMAL(10,2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    note VARCHAR(100),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    note VARCHAR(100)
 );
 
 -- Order items table
