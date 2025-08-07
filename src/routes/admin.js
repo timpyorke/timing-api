@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
 const Menu = require('../models/Menu');
-const FcmToken = require('../models/FcmToken');
-const NotificationService = require('../services/notificationService');
+const OneSignalToken = require('../models/OneSignalToken');
+const OneSignalNotificationService = require('../services/oneSignalNotificationService');
 const websocketService = require('../services/websocketService');
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const { 
@@ -11,7 +11,7 @@ const {
   validateMenu, 
   validateLogin,
   validateId,
-  validateFcmToken 
+  validateOneSignalPlayerId 
 } = require('../middleware/validation');
 const { sendSuccess, sendError, asyncHandler } = require('../utils/responseHelpers');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
@@ -43,9 +43,9 @@ const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
  *               password:
  *                 type: string
  *                 example: admin123
- *               fcm_token:
+ *               player_id:
  *                 type: string
- *                 description: Optional FCM token for push notifications
+ *                 description: Optional OneSignal player ID for push notifications
  *             required: [username, password]
  *     responses:
  *       200:
@@ -72,7 +72,7 @@ const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/login', validateLogin, asyncHandler(async (req, res) => {
-  const { username, password, fcm_token } = req.body;
+  const { username, password, player_id } = req.body;
   
   // Simple hardcoded admin authentication (replace with database lookup in production)
   if (username !== 'admin' || password !== 'admin123') {
@@ -87,16 +87,16 @@ router.post('/login', validateLogin, asyncHandler(async (req, res) => {
   };
   const token = generateToken(payload);
   
-  // Store FCM token if provided
-  if (fcm_token) {
+  // Store OneSignal player ID if provided
+  if (player_id) {
     try {
-      await FcmToken.store(fcm_token, payload.uid, {
+      await OneSignalToken.store(player_id, payload.uid, {
         userAgent: req.headers['user-agent'],
         ip: req.ip,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Error storing FCM token:', error);
+      console.error('Error storing OneSignal player ID:', error);
     }
   }
   
@@ -105,10 +105,10 @@ router.post('/login', validateLogin, asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/admin/fcm-token:
+ * /api/admin/onesignal-token:
  *   post:
- *     summary: Store FCM token for push notifications
- *     description: Stores a Firebase Cloud Messaging token associated with the authenticated user for receiving push notifications. The token is stored separately from user accounts and can be updated multiple times.
+ *     summary: Store OneSignal player ID for push notifications
+ *     description: Stores a OneSignal player ID associated with the authenticated user for receiving push notifications. The player ID is stored separately from user accounts and can be updated multiple times.
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -118,14 +118,14 @@ router.post('/login', validateLogin, asyncHandler(async (req, res) => {
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/FcmTokenRequest'
+ *             $ref: '#/components/schemas/OneSignalTokenRequest'
  *     responses:
  *       200:
- *         description: FCM token stored successfully
+ *         description: OneSignal player ID stored successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/FcmTokenResponse'
+ *               $ref: '#/components/schemas/OneSignalTokenResponse'
  *       400:
  *         description: Validation error
  *         content:
@@ -145,17 +145,17 @@ router.post('/login', validateLogin, asyncHandler(async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/fcm-token', authenticateToken, validateFcmToken, asyncHandler(async (req, res) => {
-  const { fcm_token } = req.body;
+router.post('/onesignal-token', authenticateToken, validateOneSignalPlayerId, asyncHandler(async (req, res) => {
+  const { player_id } = req.body;
   
-  // Store FCM token with optional device info
+  // Store OneSignal player ID with optional device info
   const deviceInfo = {
     userAgent: req.headers['user-agent'],
     ip: req.ip,
     timestamp: new Date().toISOString()
   };
   
-  const storedToken = await FcmToken.store(fcm_token, req.user.uid, deviceInfo);
+  const storedToken = await OneSignalToken.store(player_id, req.user.uid, deviceInfo);
   
   const responseData = {
     token_id: storedToken.id,
@@ -166,7 +166,7 @@ router.post('/fcm-token', authenticateToken, validateFcmToken, asyncHandler(asyn
     }
   };
   
-  sendSuccess(res, responseData, 'FCM token stored successfully');
+  sendSuccess(res, responseData, 'OneSignal player ID stored successfully');
 }));
 
 /**
@@ -621,9 +621,9 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
     // Update order status
     const updatedOrder = await Order.updateStatus(orderId, status);
 
-    // Send status update notifications (both Firebase and real-time)
+    // Send status update notifications (both OneSignal and real-time)
     try {
-      await NotificationService.sendOrderStatusUpdate(updatedOrder, status);
+      await OneSignalNotificationService.sendOrderStatusUpdate(updatedOrder, status);
       websocketService.sendOrderStatusUpdate(updatedOrder, status);
     } catch (notificationError) {
       console.error('Failed to send status update notification:', notificationError);
@@ -1403,7 +1403,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
  * /api/admin/test-notification:
  *   post:
  *     summary: Send test push notification
- *     description: Sends a test push notification to FCM tokens associated with the authenticated user. If no user tokens are found, uses the first available token in the system for testing.
+ *     description: Sends a test push notification to OneSignal player IDs associated with the authenticated user. If no user player IDs are found, uses the first available player ID in the system for testing.
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -1429,7 +1429,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
  *                   type: string
  *                   example: 'Test notification sent'
  *       400:
- *         description: No FCM tokens found
+ *         description: No OneSignal player IDs found
  *         content:
  *           application/json:
  *             schema:
@@ -1452,29 +1452,29 @@ router.post('/test-notification', authenticateToken, async (req, res) => {
   try {
     const { title, body } = req.body;
     
-    // Get user's FCM tokens by Firebase UID or admin tokens
-    let userTokens = [];
+    // Get user's OneSignal player IDs or admin player IDs
+    let userPlayerIds = [];
     
-    // Check if user is admin (JWT token) or Firebase user
+    // Check if user is admin (JWT token) or regular user
     if (req.user.role === 'admin') {
-      // For admin users, get all available tokens since admin can test all devices
-      userTokens = await FcmToken.getAll();
+      // For admin users, get all available player IDs since admin can test all devices
+      userPlayerIds = await OneSignalToken.getAll();
     } else {
-      // For Firebase users, get their specific tokens
-      userTokens = await FcmToken.findByFirebaseUid(req.user.uid);
+      // For regular users, get their specific player IDs
+      userPlayerIds = await OneSignalToken.findByUserId(req.user.uid);
     }
     
-    // Fallback if no tokens found
-    if (userTokens.length === 0) {
+    // Fallback if no player IDs found
+    if (userPlayerIds.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'No FCM tokens found'
+        error: 'No OneSignal player IDs found'
       });
     }
     
-    // Use first available token for testing
-    const tokenToUse = Array.isArray(userTokens) ? userTokens[0] : userTokens[0].token;
-    await NotificationService.testNotification(tokenToUse, title, body);
+    // Use first available player ID for testing
+    const playerIdToUse = Array.isArray(userPlayerIds) ? userPlayerIds[0] : userPlayerIds[0].player_id;
+    await OneSignalNotificationService.testNotification(playerIdToUse, title, body);
     
     res.json({
       success: true,

@@ -2,21 +2,21 @@
 
 ## Project Overview
 
-Node.js/Express API for order management system with Firebase push notifications and PostgreSQL database integration via Supabase.
+Node.js/Express API for order management system with OneSignal push notifications and PostgreSQL database integration via Supabase.
 
 ## Architecture
 
 - **Backend**: Node.js with Express.js framework
 - **Database**: PostgreSQL via Supabase
 - **Authentication**: JWT for admin users
-- **Notifications**: Firebase Admin SDK for push notifications
+- **Notifications**: OneSignal for push notifications
 - **Security**: Helmet, CORS, rate limiting, input validation
 
 ## Database Schema
 
 ````sql
 -- Core tables
-- admin_users: Admin authentication with FCM tokens
+- admin_users: Admin authentication with OneSignal player IDs
 - menus: Menu items with customizations and image URLs
 - orders: Customer orders with status tracking
 - order_items: Individual items within orders
@@ -33,7 +33,7 @@ Node.js/Express API for order management system with Firebase push notifications
 - `PUT /api/admin/orders/:id/status` - Update order status
 - `GET/POST/PUT/DELETE /api/admin/menu` - Full menu CRUD
 - `GET /api/admin/sales/today` - Daily sales summary
-- `POST /api/admin/test-notification` - Test Firebase notifications
+- `POST /api/admin/test-notification` - Test OneSignal notifications
 
 ## Environment Configuration
 ```env
@@ -41,12 +41,9 @@ PORT=8000
 NODE_ENV=development
 DATABASE_URL="postgresql://postgres:Timing%24upabase@db.kzerorfeuabowkimywnf.supabase.co:5432/postgres"
 
-# Firebase Admin SDK
-FIREBASE_PROJECT_ID="timing-48aba"
-FIREBASE_PRIVATE_KEY_ID="aac2e8b4f12ee13a2a2154844da94d79bb79ab19"
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----"..."
-FIREBASE_CLIENT_EMAIL="firebase-adminsdk-fbsvc@timing-48aba.iam.gserviceaccount.com"
-FIREBASE_CLIENT_ID="114328713493572451245"
+# OneSignal Configuration
+ONESIGNAL_APP_ID="your-onesignal-app-id"
+ONESIGNAL_REST_API_KEY="your-onesignal-rest-api-key"
 ````
 
 ## Development Commands
@@ -108,7 +105,7 @@ The project uses environment-specific configuration files:
 
 - Express server with security middleware
 - All API endpoints implemented with validation
-- Firebase Admin SDK integration for notifications
+- OneSignal integration for push notifications
 - JWT authentication system
 - PostgreSQL models and schema
 - Real database integration with PostgreSQL
@@ -120,7 +117,7 @@ The project uses environment-specific configuration files:
 - **Database Connection**: Working with Supabase production pooler
 - **All endpoints tested and functional**
 - **Admin authentication working with JWT**
-- **Firebase notifications configured and ready**
+- **OneSignal notifications configured and ready**
 
 ### 🔧 Database Connection
 
@@ -129,11 +126,11 @@ The project uses environment-specific configuration files:
 - **SSL**: Required with `rejectUnauthorized: false`
 - **Admin Credentials**: `username: admin`, `password: admin123`
 
-## Firebase Integration
+## OneSignal Integration
 
 - Configured for push notifications to admin devices
 - Sends notifications when new orders are created
-- Supports multiple admin devices via FCM tokens
+- Supports multiple admin devices via OneSignal player IDs
 - Includes order details in notification payload
 
 ## Security Features
@@ -151,12 +148,12 @@ The project uses environment-specific configuration files:
 src/
 ├── config/
 │   ├── database.js     # PostgreSQL connection
-│   └── firebase.js     # Firebase Admin SDK setup
+│   └── onesignal.js    # OneSignal client setup
 ├── middleware/
 │   ├── auth.js         # JWT authentication
 │   └── validation.js   # Input validation rules
 ├── models/
-│   ├── FcmToken.js     # FCM token operations
+│   ├── OneSignalToken.js # OneSignal player ID operations
 │   ├── Menu.js         # Menu item operations with image URL support
 │   ├── Order.js        # Order management
 │   └── database.sql    # Database schema
@@ -165,7 +162,7 @@ src/
 │   ├── customer.js     # Customer API endpoints
 │   └── customer-mock.js # Mock data fallback
 ├── services/
-│   └── notificationService.js # Firebase notifications
+│   └── oneSignalNotificationService.js # OneSignal notifications
 ├── utils/
 │   └── constants.js    # Application constants
 └── server.js          # Main application entry
@@ -194,7 +191,7 @@ curl -X POST http://localhost:8000/api/admin/menu \
 ## Production Deployment Notes
 - Server runs on port 8000 by default
 - Requires valid Supabase database connection
-- Firebase service account key needed for notifications
+- OneSignal App ID and REST API key needed for notifications
 - JWT_SECRET should be cryptographically secure
 - Enable HTTPS in production
 - Configure proper CORS origins
@@ -204,7 +201,7 @@ When working on this project:
 1. Always test database connectivity before implementing new features
 2. Use mock data routes when database is unavailable
 3. Validate all inputs and handle errors gracefully
-4. Test Firebase notifications with real FCM tokens
+4. Test OneSignal notifications with real player IDs
 5. Maintain consistent JSON response format
 6. Follow existing code patterns and conventions
 7. Run `npm run dev` to start development server
