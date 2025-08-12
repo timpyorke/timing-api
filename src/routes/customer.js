@@ -4,6 +4,7 @@ const cache = require('memory-cache');
 const Menu = require('../models/Menu');
 const Order = require('../models/Order');
 const OneSignalNotificationService = require('../services/oneSignalNotificationService');
+const LineNotificationService = require('../services/lineNotificationService');
 const websocketService = require('../services/websocketService');
 const { validateOrder, validateId } = require('../middleware/validation');
 const { sendSuccess, sendError, handleDatabaseError, asyncHandler } = require('../utils/responseHelpers');
@@ -199,15 +200,24 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
     return sendError(res, 'Failed to create order', 500);
   }
 
-  // Send notification to admins
+  // Send notifications to admins
+  
+  // Send OneSignal notification
   try {
-    const locale = req.locale || 'en';
     await OneSignalNotificationService.sendOrderNotification(order, locale);
-    console.log(`Notification sent successfully for order ${order.id}`);
+    console.log(`OneSignal notification sent successfully for order ${order.id}`);
   } catch (notificationError) {
-    console.error('Failed to send notification for order', order.id, ':', notificationError.message);
+    console.error('Failed to send OneSignal notification for order', order.id, ':', notificationError.message);
     // Don't fail the order creation if notification fails
-    // Log the error but continue with successful order response
+  }
+
+  // Send LINE notification
+  try {
+    await LineNotificationService.sendOrderNotification(order, locale);
+    console.log(`LINE notification sent successfully for order ${order.id}`);
+  } catch (notificationError) {
+    console.error('Failed to send LINE notification for order', order.id, ':', notificationError.message);
+    // Don't fail the order creation if notification fails
   }
 
   sendSuccess(res, order, SUCCESS_MESSAGES.ORDER_CREATED, 201);

@@ -3,7 +3,9 @@ const router = express.Router();
 const Order = require('../models/Order');
 const Menu = require('../models/Menu');
 const OneSignalToken = require('../models/OneSignalToken');
+const LineToken = require('../models/LineToken');
 const OneSignalNotificationService = require('../services/oneSignalNotificationService');
+const LineNotificationService = require('../services/lineNotificationService');
 const websocketService = require('../services/websocketService');
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const { 
@@ -167,6 +169,85 @@ router.post('/onesignal-token', authenticateToken, validateOneSignalPlayerId, as
   };
   
   sendSuccess(res, responseData, 'OneSignal player ID stored successfully');
+}));
+
+/**
+ * @swagger
+ * /api/admin/line-token:
+ *   post:
+ *     summary: Store LINE user ID for push notifications  
+ *     description: Stores a LINE user ID associated with the authenticated user for receiving LINE notifications. The user ID is stored separately from user accounts and can be updated multiple times.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               line_user_id:
+ *                 type: string
+ *                 description: LINE user ID for notifications
+ *                 example: U1234567890abcdef1234567890abcdef
+ *               user_info:
+ *                 type: object
+ *                 description: Optional user information from LINE
+ *             required: [line_user_id]
+ *     responses:
+ *       200:
+ *         description: LINE user ID stored successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     line_user_id:
+ *                       type: string
+ *                     user_id:
+ *                       type: string
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Invalid LINE user ID format
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/line-token', authenticateToken, asyncHandler(async (req, res) => {
+  const { line_user_id, user_info } = req.body;
+
+  if (!line_user_id || typeof line_user_id !== 'string') {
+    return sendError(res, 'Valid LINE user ID is required', 400);
+  }
+
+  // Store LINE user ID with optional user info
+  const userInfo = {
+    ...user_info,
+    stored_at: new Date().toISOString(),
+    stored_by: req.user.uid
+  };
+
+  const storedToken = await LineToken.store(line_user_id, req.user.uid, userInfo);
+
+  const responseData = {
+    line_user_id: storedToken.line_user_id,
+    user_id: storedToken.user_id,
+    created_at: storedToken.created_at,
+    updated_at: storedToken.updated_at
+  };
+
+  sendSuccess(res, responseData, 'LINE user ID stored successfully');
 }));
 
 /**
@@ -621,12 +702,18 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
     // Update order status
     const updatedOrder = await Order.updateStatus(orderId, status);
 
-    // Send status update notifications (both OneSignal and real-time)
+    // Send status update notifications (OneSignal, LINE, and real-time)
     try {
       await OneSignalNotificationService.sendOrderStatusUpdate(updatedOrder, status);
       websocketService.sendOrderStatusUpdate(updatedOrder, status);
     } catch (notificationError) {
-      console.error('Failed to send status update notification:', notificationError);
+      console.error('Failed to send OneSignal status update notification:', notificationError);
+    }
+
+    try {
+      await LineNotificationService.sendOrderStatusUpdate(updatedOrder, status);
+    } catch (notificationError) {
+      console.error('Failed to send LINE status update notification:', notificationError);
     }
 
     res.json({
@@ -1485,6 +1572,107 @@ router.post('/test-notification', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to send test notification'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/test-line-notification:
+ *   post:
+ *     summary: Send test LINE notification
+ *     description: Sends a test LINE notification to LINE user IDs associated with the authenticated user. If no user LINE IDs are found, uses the first available LINE user ID in the system for testing.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Test notification title
+ *                 example: "Test Notification"
+ *               body:
+ *                 type: string
+ *                 description: Test notification body
+ *                 example: "This is a test LINE notification"
+ *     responses:
+ *       200:
+ *         description: Test LINE notification sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: 'Test LINE notification sent'
+ *       400:
+ *         description: No LINE user IDs found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+// Test LINE notification endpoint (for debugging)
+router.post('/test-line-notification', authenticateToken, async (req, res) => {
+  try {
+    const { title, body } = req.body;
+    
+    // Get user's LINE user IDs or admin LINE user IDs
+    let userLineIds = [];
+    
+    // Check if user is admin (JWT token) or regular user
+    if (req.user.role === 'admin') {
+      // For admin users, get all available LINE user IDs since admin can test all devices
+      userLineIds = await LineToken.getAll();
+    } else {
+      // For regular users, get their specific LINE user IDs
+      const userTokens = await LineToken.findByUserId(req.user.uid);
+      userLineIds = userTokens.map(token => token.line_user_id);
+    }
+    
+    // Fallback if no LINE user IDs found
+    if (userLineIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No LINE user IDs found'
+      });
+    }
+    
+    // Use first available LINE user ID for testing
+    const lineUserIdToUse = userLineIds[0];
+    await LineNotificationService.testNotification(lineUserIdToUse, title, body);
+    
+    res.json({
+      success: true,
+      message: 'Test LINE notification sent'
+    });
+  } catch (error) {
+    console.error('Error sending test LINE notification:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to send test LINE notification'
     });
   }
 });
