@@ -2,14 +2,14 @@
 
 ## Project Overview
 
-Node.js/Express API for order management system with OneSignal push notifications and PostgreSQL database integration via Supabase.
+Node.js/Express API for order management system with OneSignal push notifications, LINE messaging, and PostgreSQL database integration via Supabase.
 
 ## Architecture
 
 - **Backend**: Node.js with Express.js framework
 - **Database**: PostgreSQL via Supabase
 - **Authentication**: JWT for admin users
-- **Notifications**: OneSignal for push notifications
+- **Notifications**: OneSignal for push notifications, LINE Messaging API for chat notifications
 - **Security**: Helmet, CORS, rate limiting, input validation
 
 ## Database Schema
@@ -34,6 +34,11 @@ Node.js/Express API for order management system with OneSignal push notification
 - `GET/POST/PUT/DELETE /api/admin/menu` - Full menu CRUD
 - `GET /api/admin/sales/today` - Daily sales summary
 - `POST /api/admin/test-notification` - Test OneSignal notifications
+- `POST /api/admin/test-line-notification` - Test LINE notifications
+- `POST /api/admin/line-token` - Store LINE user ID for notifications
+
+### LINE Bot Endpoints
+- `POST /api/line/webhook` - LINE Bot webhook for receiving events
 
 ## Environment Configuration
 ```env
@@ -44,6 +49,10 @@ DATABASE_URL="postgresql://postgres:Timing%24upabase@db.kzerorfeuabowkimywnf.sup
 # OneSignal Configuration
 ONESIGNAL_APP_ID="your-onesignal-app-id"
 ONESIGNAL_REST_API_KEY="your-onesignal-rest-api-key"
+
+# LINE Messaging API Configuration
+LINE_CHANNEL_ACCESS_TOKEN="your-line-channel-access-token"
+LINE_CHANNEL_SECRET="your-line-channel-secret"
 ````
 
 ## Development Commands
@@ -106,6 +115,7 @@ The project uses environment-specific configuration files:
 - Express server with security middleware
 - All API endpoints implemented with validation
 - OneSignal integration for push notifications
+- LINE Messaging API integration for chat notifications
 - JWT authentication system
 - PostgreSQL models and schema
 - Real database integration with PostgreSQL
@@ -132,6 +142,15 @@ The project uses environment-specific configuration files:
 - Sends notifications when new orders are created
 - Supports multiple admin devices via OneSignal player IDs
 - Includes order details in notification payload
+
+## LINE Messaging Integration
+
+- LINE Bot webhook for receiving user messages and events
+- Rich message templates with order details and status updates
+- Admin registration via chat commands ("register admin")
+- Support for both Thai and English interfaces
+- Automatic user management (follow/unfollow events)
+- Flex message format for better visual presentation
 
 ## Security Features
 

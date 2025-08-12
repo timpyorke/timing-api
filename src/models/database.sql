@@ -10,6 +10,16 @@ CREATE TABLE onesignal_tokens (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- LINE tokens table (for LINE messaging notifications)
+CREATE TABLE line_tokens (
+    id SERIAL PRIMARY KEY,
+    line_user_id TEXT NOT NULL UNIQUE,
+    user_id VARCHAR(128),
+    user_info JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- FCM tokens table (kept for backward compatibility during migration)
 CREATE TABLE fcm_tokens (
     id SERIAL PRIMARY KEY,
