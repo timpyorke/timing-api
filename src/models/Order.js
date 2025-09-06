@@ -7,14 +7,15 @@ class Order {
     return executeTransaction(async (client) => {
       // Insert order
       const orderQuery = `
-        INSERT INTO orders (customer_id, customer_info, status, total, notes)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO orders (customer_id, customer_info, status, discount_amount, total, notes)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
       `;
       const orderResult = await client.query(orderQuery, [
         orderData.customer_id || null,
         orderData.customer_info,
         ORDER_STATUS.PENDING,
+        orderData.discount_amount || 0,
         orderData.total,
         orderData.notes || null,
       ]);
@@ -177,14 +178,15 @@ class Order {
       const orderQuery = `
         UPDATE orders 
         SET customer_id = $1, customer_info = $2, total = $3, 
-            notes = $4, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $5 
+            discount_amount = $4, notes = $5, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $6 
         RETURNING *
       `;
       const orderResult = await client.query(orderQuery, [
         orderData.customer_id || null,
         orderData.customer_info,
         orderData.total,
+        orderData.discount_amount || 0,
         orderData.notes || null,
         id
       ]);

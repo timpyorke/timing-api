@@ -406,11 +406,12 @@ router.post('/orders', authenticateToken, async (req, res) => {
     const orderData = {
       customer_info: req.body.customer_info,
       items: req.body.items,
-      total: req.body.total
+      total: req.body.total,
+      discount_amount: req.body.discount_amount || 0
     };
 
-    // Validate that menu items exist and calculate total
-    let calculatedTotal = 0;
+    // Validate that menu items exist and calculate subtotal
+    let calculatedSubtotal = 0;
     for (const item of orderData.items) {
       const menuItem = await Menu.findById(item.menu_id);
       if (!menuItem) {
@@ -425,14 +426,24 @@ router.post('/orders', authenticateToken, async (req, res) => {
           error: `Menu item "${menuItem.name}" is currently unavailable`
         });
       }
-      calculatedTotal += parseFloat(item.price) * item.quantity;
+      calculatedSubtotal += parseFloat(item.price) * item.quantity;
     }
 
-    // Verify the total matches (allow small floating point differences)
-    if (Math.abs(calculatedTotal - parseFloat(orderData.total)) > 0.01) {
+    // Validate discount_amount
+    const discount = parseFloat(orderData.discount_amount) || 0;
+    if (discount < 0) {
+      return res.status(400).json({ success: false, error: 'discount_amount cannot be negative' });
+    }
+    if (discount > calculatedSubtotal + 0.0001) {
+      return res.status(400).json({ success: false, error: 'discount_amount cannot exceed subtotal' });
+    }
+
+    // Verify the total matches subtotal - discount (allow small floating point differences)
+    const expectedTotal = calculatedSubtotal - discount;
+    if (Math.abs(expectedTotal - parseFloat(orderData.total)) > 0.01) {
       return res.status(400).json({
         success: false,
-        error: 'Order total does not match item prices'
+        error: 'Order total does not match item prices minus discount'
       });
     }
 
@@ -592,7 +603,8 @@ router.put('/orders/:id', authenticateToken, validateId, async (req, res) => {
     const orderData = {
       customer_info: req.body.customer_info,
       items: req.body.items,
-      total: req.body.total
+      total: req.body.total,
+      discount_amount: req.body.discount_amount || 0
     };
 
     // Update order
