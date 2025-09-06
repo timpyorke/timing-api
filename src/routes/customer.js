@@ -161,6 +161,7 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
     customer_info: req.body.customer_info,
     items: req.body.items,
     total: req.body.total,
+    discount_amount: req.body.discount_amount || 0,
     customer_locale: locale,
     notes: req.body.notes,
     notes_th: req.body.notes_th
@@ -174,7 +175,7 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
     return acc;
   }, {});
 
-  let calculatedTotal = 0;
+  let calculatedSubtotal = 0;
   for (const item of orderData.items) {
     const menuItem = menuItemsById[item.menu_id];
     if (!menuItem) {
@@ -183,12 +184,22 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
     if (!menuItem.active) {
       return sendError(res, `Menu item "${menuItem.name}" is currently unavailable`, 400);
     }
-    calculatedTotal += parseFloat(item.price) * item.quantity;
+    calculatedSubtotal += parseFloat(item.price) * item.quantity;
   }
 
-  // Verify the total matches (allow small floating point differences)
-  if (Math.abs(calculatedTotal - parseFloat(orderData.total)) > 0.01) {
-    return sendError(res, 'Order total does not match item prices', 400);
+  // Validate discount_amount
+  const discount = parseFloat(orderData.discount_amount) || 0;
+  if (discount < 0) {
+    return sendError(res, 'discount_amount cannot be negative', 400);
+  }
+  if (discount > calculatedSubtotal + 0.0001) {
+    return sendError(res, 'discount_amount cannot exceed subtotal', 400);
+  }
+
+  // Verify the total matches subtotal - discount (allow small floating point differences)
+  const expectedTotal = calculatedSubtotal - discount;
+  if (Math.abs(expectedTotal - parseFloat(orderData.total)) > 0.01) {
+    return sendError(res, 'Order total does not match item prices minus discount', 400);
   }
 
   // Create the order

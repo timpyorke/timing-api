@@ -307,6 +307,12 @@ const options = {
               },
               minItems: 1
             },
+            discount_amount: {
+              type: 'number',
+              format: 'decimal',
+              description: 'Optional discount applied to the order',
+              example: 1.50
+            },
             total: {
               type: 'number',
               format: 'decimal',
@@ -333,6 +339,10 @@ const options = {
             total: {
               type: 'string',
               example: '7.00'
+            },
+            discount_amount: {
+              type: 'string',
+              example: '1.50'
             },
             created_at: {
               type: 'string',

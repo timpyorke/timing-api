@@ -53,6 +53,7 @@ CREATE TABLE orders (
     customer_id VARCHAR(100),
     customer_info JSONB NOT NULL,
     status VARCHAR(20) DEFAULT 'pending',
+    discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     total DECIMAL(10,2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -20,6 +20,7 @@ const validateOrder = [
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   body('items.*.price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
   body('items.*.customizations').optional().isObject().withMessage('Customizations must be an object'),
+  body('discount_amount').optional().isFloat({ min: 0 }).withMessage('Discount amount must be a non-negative number'),
   body('total').isFloat({ min: 0 }).withMessage('Total must be a positive number'),
   handleValidationErrors
 ];
