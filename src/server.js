@@ -38,7 +38,7 @@ app.use('/api-docs', swagger.serve, swagger.setup);
 // Routes
 app.use('/api', require('./routes/customer'));
 app.use('/api/admin', require('./routes/admin'));
-app.use('/api/line', require('./routes/line'));
+// LINE webhook routes removed per request
 
 /**
  * @swagger
