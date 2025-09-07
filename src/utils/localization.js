@@ -59,13 +59,13 @@ class Localization {
     let translation = this.translations[locale];
 
     for (const k of keys) {
-      if (translation && typeof translation === 'object' && translation[k] !== undefined) {
+      if (translation && typeof translation === 'object' && (k in translation)) {
         translation = translation[k];
       } else {
         // Fallback to default locale if key not found
         translation = this.translations[this.defaultLocale];
         for (const fallbackKey of keys) {
-          if (translation && typeof translation === 'object' && translation[fallbackKey] !== undefined) {
+          if (translation && typeof translation === 'object' && (fallbackKey in translation)) {
             translation = translation[fallbackKey];
           } else {
             return key; // Return the key if translation not found
@@ -77,8 +77,8 @@ class Localization {
 
     if (typeof translation === 'string') {
       // Replace parameters in the translation
-      return translation.replace(/{(\w+)}/g, (match, param) => {
-        return params[param] !== undefined ? params[param] : match;
+      return translation.replace(/\{(\w+)\}/g, (match, param) => {
+        return (param in params) ? params[param] : match;
       });
     }
 

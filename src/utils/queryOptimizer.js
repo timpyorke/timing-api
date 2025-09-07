@@ -14,7 +14,7 @@ const buildWhereClause = (filters, startParamIndex = 1) => {
   let paramIndex = startParamIndex;
 
   Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
+    if (value != null && value !== '') {
       // Handle different filter types
       switch (key) {
         case 'date':
