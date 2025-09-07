@@ -45,7 +45,7 @@ class Menu {
       menuData.description_th || null,
       menuData.description_en || null,
       menuData.customizations || {},
-      menuData.active !== undefined ? menuData.active : true
+      menuData.active ?? true
     ]);
     return result.rows[0];
   }

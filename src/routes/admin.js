@@ -846,7 +846,7 @@ router.post('/menu', authenticateToken, validateMenu, async (req, res) => {
       image_url: req.body.image_url || null,
       customizations: req.body.customizations || {},
       customizations_en: req.body.customizations_en || {},
-      active: req.body.active !== undefined ? req.body.active : true
+      active: req.body.active ?? true
     };
 
     const menuItem = await Menu.create(menuData);
@@ -949,7 +949,7 @@ router.put('/menu/:id', authenticateToken, validateId, validateMenu, async (req,
       image_url: req.body.image_url || null,
       customizations: req.body.customizations || {},
       customizations_en: req.body.customizations_en || {},
-      active: req.body.active !== undefined ? req.body.active : true
+      active: req.body.active ?? true
     };
 
     const updatedMenuItem = await Menu.update(menuId, menuData);
