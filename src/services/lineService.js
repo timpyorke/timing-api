@@ -48,7 +48,7 @@ function buildOrderCreatedMessage(order) {
   const createdAt = order?.created_at || new Date().toISOString();
   const timePart = formatOrderDate(createdAt);
   const customerName = order?.customer_name ? order?.customer_name :'Customer';
-  const note = order?.note ? ` (${order.note})` : '';
+  const note = order?.notes ? ` (${order.notes})` : '';
 
   // Items may come localized from Order model
   const items = Array.isArray(order?.items) ? order.items : [];
