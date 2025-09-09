@@ -3,7 +3,6 @@ const router = express.Router();
 const cache = require('memory-cache');
 const Menu = require('../models/Menu');
 const Order = require('../models/Order');
-const websocketService = require('../services/websocketService');
 const lineService = require('../services/lineService');
 const { validateOrder, validateId } = require('../middleware/validation');
 const { sendSuccess, sendError, handleDatabaseError, asyncHandler } = require('../utils/responseHelpers');

@@ -4,7 +4,6 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const swagger = require('./config/swagger');
 const http = require('http');
-const websocketService = require('./services/websocketService');
 require('dotenv').config();
 
 const app = express();
@@ -80,14 +79,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Initialize WebSocket service
-websocketService.initialize(server);
-
 // Only start server if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
-    console.log(`WebSocket service available at ws://localhost:${PORT}/admin`);
   });
 }
 

@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
 const Menu = require('../models/Menu');
-const websocketService = require('../services/websocketService');
 const lineService = require('../services/lineService');
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const { 
@@ -660,12 +659,7 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
     // Update order status
     const updatedOrder = await Order.updateStatus(orderId, status);
 
-    // Send real-time status update via WebSocket (push notifications removed)
-    try {
-      websocketService.sendOrderStatusUpdate(updatedOrder, status);
-    } catch (notificationError) {
-      console.error('Failed to send WebSocket status update notification:', notificationError);
-    }
+    // Real-time socket notifications removed
 
     res.json({
       success: true,
@@ -1548,49 +1542,6 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
 // Test LINE notification endpoint (for debugging)
 // Removed test LINE notification endpoint per request
 
-/**
- * @swagger
- * /api/admin/websocket/stats:
- *   get:
- *     summary: Get WebSocket connection statistics
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: WebSocket stats retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     adminConnections:
- *                       type: number
- *                       example: 2
- *                     isInitialized:
- *                       type: boolean
- *                       example: true
- */
-router.get('/websocket/stats', authenticateToken, (req, res) => {
-  try {
-    const stats = websocketService.getStats();
-    res.json({
-      success: true,
-      data: stats
-    });
-  } catch (error) {
-    console.error('Error getting WebSocket stats:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get WebSocket stats'
-    });
-  }
-});
+// WebSocket stats endpoint removed
 
 module.exports = router;
