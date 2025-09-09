@@ -1,4 +1,5 @@
 const { executeQuery, executeTransaction } = require('../utils/database');
+const Inventory = require('./Inventory');
 const { ORDER_STATUS } = require('../utils/constants');
 const { buildWhereClause, buildOrderByClause } = require('../utils/queryOptimizer');
 
@@ -36,6 +37,10 @@ class Order {
           item.price
         ]);
       }
+
+      // Deduct inventory stock for this order
+      const minimalItems = orderData.items.map(i => ({ menu_id: i.menu_id, quantity: i.quantity }));
+      await Inventory.checkAndDeductStockForOrder(client, minimalItems);
       
       // Get the full order with items using the same transaction client
       const query = `
