@@ -1,7 +1,7 @@
 {
   "name": "timing-api",
   "version": "1.0.0",
-  "description": "Node.js/Express API for order management with Firebase integration",
+  "description": "Node.js/Express API for order management with LINE Messaging integration",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

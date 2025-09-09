@@ -46,8 +46,7 @@ npm run dev
 - **Update Order Status** - Change order status
 - **Menu Management** - Full CRUD operations
 - **Sales Reports** - Get today's sales data
-- **Push Notifications** - Test FCM notifications
-- **FCM Token Management** - Register device tokens
+- LINE notifications are automatic on order creation (no manual test endpoint)
 
 ## Authentication Flow
 
@@ -91,10 +90,8 @@ npm run dev
 4. Update Menu Item
 5. Delete Menu Item
 
-### 🔔 Notification Testing
-1. Admin Login
-2. Register FCM Token
-3. Test Notification
+### 🔔 Notifications
+LINE messages are sent automatically after successful order creation to all `line_user_id` in the database.
 
 ## Sample Data
 
@@ -172,10 +169,10 @@ npm run dev
 - Check database connection in logs
 - Verify environment variables are set
 
-**FCM Token Errors**
-- Use valid FCM token from Firebase console
-- Ensure Firebase Admin SDK is configured
-- Check Firebase project ID in environment
+**LINE Message Not Received**
+- Ensure `LINE_CHANNEL_ACCESS_TOKEN` is set
+- Verify your `line_user_id` exists in `line_tokens`
+- Confirm the bot can push messages to this user (user must be a friend)
 
 ### 📊 Response Validation
 
