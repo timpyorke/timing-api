@@ -8,8 +8,9 @@ module.exports = (sequelize) => {
     status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'pending' },
     discount_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     total: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
-    notes: { type: DataTypes.TEXT, allowNull: true },
-    customer_locale: { type: DataTypes.STRING(5), allowNull: true },
+    // Map "notes" model attribute to legacy DB column "note"
+    notes: { type: DataTypes.STRING(100), allowNull: true, field: 'note' },
+    // customer_locale column may not exist in some DBs; omit to prevent SELECT errors
   });
 
   return Order;

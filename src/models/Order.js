@@ -101,7 +101,7 @@ class Order {
         as: 'items',
         include: [{ model: MenuModel, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
       }],
-      // Use simple column ordering to avoid alias issues in Postgres
+      // Order by base model column without alias to avoid association lookup errors
       order: [[safeSortBy, sortOrder && String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC']],
     });
     return orders.map(o => {
