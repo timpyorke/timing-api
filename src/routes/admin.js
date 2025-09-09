@@ -659,7 +659,6 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
     // Update order status
     const updatedOrder = await Order.updateStatus(orderId, status);
 
-    // Real-time socket notifications removed
 
     res.json({
       success: true,
