@@ -42,6 +42,11 @@ app.use('/api', require('./routes/customer'));
 app.use('/api/admin', require('./routes/admin'));
 // LINE webhook mounted above body parsers
 
+// Ensure DB schema pieces exist (e.g., line_tokens)
+require('./models/init')().catch(err => {
+  console.error('Database initialization error:', err?.message || err);
+});
+
 /**
  * @swagger
  * /health:
