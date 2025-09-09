@@ -4,7 +4,6 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const swagger = require('./config/swagger');
 const http = require('http');
-const websocketService = require('./services/websocketService');
 require('dotenv').config();
 
 const app = express();
@@ -22,6 +21,9 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Mount LINE webhook BEFORE body parsers to preserve raw body for signature verification
+app.use('/api/line', require('./routes/line'));
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -38,7 +40,12 @@ app.use('/api-docs', swagger.serve, swagger.setup);
 // Routes
 app.use('/api', require('./routes/customer'));
 app.use('/api/admin', require('./routes/admin'));
-// LINE webhook routes removed per request
+// LINE webhook mounted above body parsers
+
+// Ensure DB schema pieces exist (e.g., line_tokens)
+require('./models/init')().catch(err => {
+  console.error('Database initialization error:', err?.message || err);
+});
 
 /**
  * @swagger
@@ -80,14 +87,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Initialize WebSocket service
-websocketService.initialize(server);
-
 // Only start server if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
-    console.log(`WebSocket service available at ws://localhost:${PORT}/admin`);
   });
 }
 

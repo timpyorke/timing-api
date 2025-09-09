@@ -3,7 +3,7 @@ const router = express.Router();
 const cache = require('memory-cache');
 const Menu = require('../models/Menu');
 const Order = require('../models/Order');
-const websocketService = require('../services/websocketService');
+const lineService = require('../services/lineService');
 const { validateOrder, validateId } = require('../middleware/validation');
 const { sendSuccess, sendError, handleDatabaseError, asyncHandler } = require('../utils/responseHelpers');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
@@ -209,7 +209,13 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
     return sendError(res, 'Failed to create order', 500);
   }
 
-  // Notifications via OneSignal/LINE have been removed per request
+  // Send LINE notification (fire-and-forget)
+  try {
+    lineService.sendOrderCreatedNotification(order)
+      .catch(err => console.warn('LINE notify (customer create) failed:', err?.message || err));
+  } catch (e) {
+    console.warn('LINE notify (customer create) setup error:', e?.message || e);
+  }
 
   sendSuccess(res, order, SUCCESS_MESSAGES.ORDER_CREATED, 201);
 }));

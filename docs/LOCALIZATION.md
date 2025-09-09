@@ -135,9 +135,9 @@ Accept-Language: en-US,en;q=0.9
 - "Order created successfully" → "สร้างคำสั่งซื้อสำเร็จ"
 - "Internal server error" → "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
 
-## Push Notifications
+## Notifications
 
-Notifications are now localized based on the request locale:
+Notifications (including LINE messages) are localized based on the request locale:
 
 ### English
 - Title: "New Order"

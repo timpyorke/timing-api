@@ -1,0 +1,136 @@
+const express = require('express');
+const line = require('@line/bot-sdk');
+const pool = require('../config/database');
+
+const router = express.Router();
+
+// LINE configuration from environment
+const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+const channelSecret = process.env.LINE_CHANNEL_SECRET;
+
+// Guard flags
+const hasConfig = Boolean(channelAccessToken && channelSecret);
+
+// Initialize LINE SDK client (for replies and profile fetching)
+let client = null;
+if (channelAccessToken) {
+  client = new line.Client({ channelAccessToken });
+} else {
+  console.warn('LINE webhook: LINE_CHANNEL_ACCESS_TOKEN is not set. Replies disabled.');
+}
+
+// Helper: upsert LINE user id into DB with optional profile info
+async function upsertLineUser(lineUserId, userInfo = {}) {
+  const query = `
+    INSERT INTO line_tokens (line_user_id, user_info)
+    VALUES ($1, $2::jsonb)
+    ON CONFLICT (line_user_id)
+    DO UPDATE SET user_info = EXCLUDED.user_info, updated_at = CURRENT_TIMESTAMP
+    RETURNING id, line_user_id, created_at, updated_at
+  `;
+  const params = [lineUserId, JSON.stringify(userInfo || {})];
+  try {
+    const { rows } = await pool.query(query, params);
+    return rows[0];
+  } catch (err) {
+    console.error('LINE webhook: failed to upsert line_user_id', { lineUserId, error: err.message });
+    throw err;
+  }
+}
+
+// Helper: remove LINE user id (on unfollow)
+async function removeLineUser(lineUserId) {
+  try {
+    await pool.query('DELETE FROM line_tokens WHERE line_user_id = $1', [lineUserId]);
+  } catch (err) {
+    console.error('LINE webhook: failed to remove line_user_id', { lineUserId, error: err.message });
+  }
+}
+
+// Handle a single LINE event
+async function handleEvent(event) {
+  const userId = event?.source?.userId;
+
+  // Optionally load profile for storage
+  const fetchProfile = async () => {
+    if (!client || !userId) return null;
+    try {
+      const profile = await client.getProfile(userId);
+      return profile; // { userId, displayName, pictureUrl, statusMessage, language }
+    } catch (e) {
+      return null;
+    }
+  };
+
+  switch (event.type) {
+    case 'follow': {
+      const profile = await fetchProfile();
+      await upsertLineUser(userId, { source: 'follow', profile });
+      if (client && event.replyToken) {
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: 'Thanks for following! You will now receive order notifications.'
+        });
+      }
+      break;
+    }
+    case 'unfollow': {
+      if (userId) await removeLineUser(userId);
+      break;
+    }
+    case 'message': {
+      if (event.message?.type === 'text') {
+        const text = (event.message.text || '').trim().toLowerCase();
+        if (text === 'register' || text === 'subscribe') {
+          const profile = await fetchProfile();
+          await upsertLineUser(userId, { source: 'message', profile });
+          if (client && event.replyToken) {
+            await client.replyMessage(event.replyToken, {
+              type: 'text',
+              text: 'Registered successfully. You will receive notifications here.'
+            });
+          }
+        } else if (text === 'help') {
+          if (client && event.replyToken) {
+            await client.replyMessage(event.replyToken, {
+              type: 'text',
+              text: 'Commands: register | help'
+            });
+          }
+        } else {
+          // Optional: echo minimal acknowledgement to avoid unused replies
+          if (client && event.replyToken) {
+            await client.replyMessage(event.replyToken, { type: 'text', text: 'OK' });
+          }
+        }
+      }
+      break;
+    }
+    default:
+      // Ignore other event types
+      break;
+  }
+}
+
+if (hasConfig) {
+  // Secure webhook with LINE signature validation
+  const middleware = line.middleware({ channelSecret });
+  router.post('/webhook', middleware, async (req, res) => {
+    try {
+      const events = Array.isArray(req.body?.events) ? req.body.events : [];
+      await Promise.all(events.map(ev => handleEvent(ev)));
+      res.status(200).end();
+    } catch (err) {
+      console.error('LINE webhook: handler error', err);
+      // Return 200 to prevent LINE retries in case of non-transient errors
+      res.status(200).end();
+    }
+  });
+} else {
+  console.warn('LINE webhook: missing LINE_CHANNEL_ACCESS_TOKEN or LINE_CHANNEL_SECRET. Webhook will accept but do nothing.');
+  // Fallback route keeps endpoint alive but does not process events
+  router.post('/webhook', (req, res) => res.status(200).end());
+}
+
+module.exports = router;
+

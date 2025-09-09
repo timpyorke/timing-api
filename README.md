@@ -1,21 +1,20 @@
 # 🍵 Timing API
 
-> **Professional Node.js/Express API for coffee shop order management with real-time Firebase notifications**
+> **Professional Node.js/Express API for coffee shop order management with LINE Messaging notifications**
 
 [![Node.js](https://img.shields.io/badge/Node.js-16+-green.svg)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-4.18+-blue.svg)](https://expressjs.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue.svg)](https://postgresql.org/)
-[![Firebase](https://img.shields.io/badge/Firebase-Admin%20SDK-orange.svg)](https://firebase.google.com/)
 [![Swagger](https://img.shields.io/badge/API%20Docs-Swagger-green.svg)](http://localhost:8000/api-docs)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 🚀 Overview
 
-The **Timing API** is a production-ready backend service designed for coffee shops and food & beverage businesses. It provides comprehensive order management, real-time notifications, and admin dashboard functionality with modern security practices.
+The **Timing API** is a production-ready backend service designed for coffee shops and food & beverage businesses. It provides comprehensive order management, LINE notifications, and admin dashboard functionality with modern security practices.
 
 ### ✨ Key Features
 
-- **🔥 Real-time Notifications**: Firebase push messages to admin devices
+- **🔔 LINE Notifications**: LINE Messaging push to registered user IDs
 - **📱 Complete CRUD Operations**: Menu and order management
 - **🖼️ Image URL Support**: Menu items with image URLs and validation
 - **🔐 Secure Authentication**: JWT-based admin authentication
@@ -27,8 +26,8 @@ The **Timing API** is a production-ready backend service designed for coffee sho
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Mobile App    │    │   Admin Panel   │    │  Customer App   │
-│   (Firebase)    │    │     (JWT)       │    │   (Public)      │
+│   LINE Users    │    │   Admin Panel   │    │  Customer App   │
+│    (LINE)       │    │     (JWT)       │    │   (Public)      │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
           │                      │                      │
           └──────────────────────┼──────────────────────┘
@@ -49,8 +48,7 @@ The **Timing API** is a production-ready backend service designed for coffee sho
 ### Prerequisites
 
 - Node.js 16+
-- PostgreSQL database (Supabase recommended)
-- Firebase project with Admin SDK
+- PostgreSQL database (e.g., Supabase)
 
 ### 1. Installation
 
@@ -86,12 +84,9 @@ DATABASE_URL="postgresql://postgres:password@host:port/database"
 # Authentication
 JWT_SECRET="your_secure_jwt_secret_key"
 
-# Firebase Admin SDK
-FIREBASE_PROJECT_ID="your_firebase_project_id"
-FIREBASE_PRIVATE_KEY_ID="your_private_key_id"
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxx@project.iam.gserviceaccount.com"
-FIREBASE_CLIENT_ID="your_client_id"
+# LINE Messaging API
+LINE_CHANNEL_ACCESS_TOKEN="your-line-channel-access-token"
+LINE_CHANNEL_SECRET="your-line-channel-secret"
 ```
 
 ### 3. Database Setup
@@ -106,13 +101,12 @@ npm run init-db
 # Sample data inserted: Admin user and menu items
 ```
 
-### 4. Firebase Setup
+### 4. LINE Setup
 
-1. **Create Firebase Project**: [Firebase Console](https://console.firebase.google.com/)
-2. **Generate Service Account**:
-   - Go to Project Settings → Service Accounts
-   - Click "Generate new private key"
-   - Download JSON and extract values to `.env`
+1. Create a LINE Messaging API channel in LINE Developers Console
+2. Get your Channel access token and Channel secret
+3. Put them in `.env` as shown above
+4. Insert at least one LINE user ID into `line_tokens` table (see below)
 
 ### 5. Start Development
 
@@ -142,12 +136,11 @@ Access the complete API documentation with live testing at:
 
 ### 📖 Documentation Files
 
-| File                                                             | Description                             |
-| ---------------------------------------------------------------- | --------------------------------------- |
-| **[API_GUIDE.md](API_GUIDE.md)**                                 | Quick start examples with curl commands |
-| **[SWAGGER_AUTH_GUIDE.md](SWAGGER_AUTH_GUIDE.md)**               | Detailed authentication setup guide     |
-| **[FCM_TOKEN_SETUP_COMPLETE.md](FCM_TOKEN_SETUP_COMPLETE.md)**   | Firebase notification configuration     |
-| **[NOTIFICATION_TEST_RESULTS.md](NOTIFICATION_TEST_RESULTS.md)** | Testing and validation results          |
+| File                               | Description                          |
+| ---------------------------------- | ------------------------------------ |
+| **[LOCALIZATION.md](LOCALIZATION.md)** | Locale and translation guide          |
+| **[DEPLOYMENT.md](DEPLOYMENT.md)** | Deployment instructions              |
+| **[POSTMAN_README.md](POSTMAN_README.md)** | Postman collection usage guide        |
 
 ## 🔐 Authentication
 
@@ -231,42 +224,37 @@ order_items     # Individual items within orders
 └── created_at
 ```
 
-## 🔔 Firebase Integration
+## 🔔 LINE Messaging Integration
 
-### Notification Features
+### Notification Behavior
 
-- **Automatic Triggers**: Every new order sends push notification
-- **Multi-device Support**: Notifications to all admin FCM tokens
-- **Rich Payload**: Includes order details and customer information
-- **Error Handling**: Graceful failure if notifications unavailable
+- Sends a LINE text message after successful order creation (customer or admin route)
+- Sends to all `line_user_id` values stored in the `line_tokens` table
+- Non-blocking, errors are logged and do not affect API responses
 
-### Notification Payload
+### Message Template
 
-```json
-{
-  "notification": {
-    "title": "New Order Received",
-    "body": "Order #123 - John Doe - $15.50"
-  },
-  "data": {
-    "type": "new_order",
-    "order_id": "123",
-    "customer_name": "John Doe",
-    "total": "15.50",
-    "created_at": "2025-07-29T10:00:00.000Z"
-  }
-}
+```
+Order #<id>
+At  9 Sep, 12.00PM
+---
+Item
+- 1x Americano
+- 3x Matcha latte
+---
+https://timing-backoffice.vercel.app/orders/<id>
 ```
 
-### FCM Token Management
+### Setup Steps
 
-```bash
-# Update admin FCM token
-node update-admin-fcm.js
+- Set `LINE_CHANNEL_ACCESS_TOKEN` and `LINE_CHANNEL_SECRET` in `.env`
+- Insert recipients into the database:
 
-# Check current FCM token status
-node check-admin-fcm.js
+```sql
+INSERT INTO line_tokens (line_user_id) VALUES ('Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
 ```
+
+Tip: Use the LINE Developers Console or your bot’s logs to capture your real `line_user_id`.
 
 ## 📊 API Response Format
 
@@ -317,12 +305,6 @@ npm test            # Run tests (coming soon)
 ### Testing Tools
 
 ```bash
-# Test database connection
-node check-admin-fcm.js
-
-# Update FCM token
-node update-admin-fcm.js
-
 # Health check
 curl http://localhost:8000/health
 ```
@@ -334,9 +316,9 @@ curl http://localhost:8000/health
 1. **Set NODE_ENV**: `NODE_ENV=production`
 2. **Secure JWT Secret**: Use cryptographically secure random string
 3. **Database**: Ensure production PostgreSQL connection
-4. **Firebase**: Use production Firebase project
 5. **SSL/HTTPS**: Enable HTTPS in production
 6. **CORS**: Configure allowed origins
+7. **LINE**: Use production LINE channel tokens
 
 ### Performance Considerations
 

@@ -17,7 +17,7 @@ Set environment variables in Railway dashboard.
 ### 2. Render
 1. Connect GitHub repository
 2. Use `render.yaml` configuration
-3. Set Firebase environment variables manually
+3. Set environment variables (including LINE) manually
 
 ### 3. Docker
 ```bash
@@ -37,12 +37,9 @@ PORT=8000
 DATABASE_URL=postgresql://user:pass@host:port/db
 JWT_SECRET=your-secret-key
 
-# Firebase Configuration
-FIREBASE_PROJECT_ID=timing-48aba
-FIREBASE_PRIVATE_KEY_ID=your-key-id
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@timing-48aba.iam.gserviceaccount.com
-FIREBASE_CLIENT_ID=your-client-id
+# LINE Messaging API
+LINE_CHANNEL_ACCESS_TOKEN=your-line-channel-access-token
+LINE_CHANNEL_SECRET=your-line-channel-secret
 ```
 
 ## Production Checklist
@@ -53,16 +50,15 @@ FIREBASE_CLIENT_ID=your-client-id
 - [ ] Set up SSL/HTTPS
 - [ ] Configure proper database connection pooling
 - [ ] Set up monitoring and logging
-- [ ] Test Firebase notifications
+- [ ] Verify LINE notifications work
 - [ ] Verify all API endpoints work
 - [ ] Run health checks
 
-## Notification Setup
+## Notification Setup (LINE)
 
-1. Firebase Admin SDK is configured
-2. FCM tokens stored in database
-3. Notifications sent on new orders
-4. Test endpoint: `POST /api/admin/test-notification`
+1. Set LINE environment variables
+2. Insert `line_user_id` rows into `line_tokens` table
+3. Place a test order via API and verify messages arrive
 
 ## Database Migration
 
