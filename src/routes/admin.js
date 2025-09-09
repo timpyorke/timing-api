@@ -3,6 +3,7 @@ const router = express.Router();
 const Order = require('../models/Order');
 const Menu = require('../models/Menu');
 const websocketService = require('../services/websocketService');
+const lineService = require('../services/lineService');
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const { 
   validateOrderStatus, 
@@ -386,6 +387,14 @@ router.post('/orders', authenticateToken, async (req, res) => {
 
     // Create the order
     const order = await Order.create(orderData);
+
+    // Fire-and-forget LINE notification (do not block response)
+    try {
+      lineService.sendOrderCreatedNotification(order)
+        .catch(err => console.warn('LINE notify (admin create) failed:', err?.message || err));
+    } catch (e) {
+      console.warn('LINE notify (admin create) setup error:', e?.message || e);
+    }
 
     res.status(201).json({
       success: true,
