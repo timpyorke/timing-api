@@ -4,9 +4,9 @@ const orm = require('../orm');
 
 class Order {
   static async create(orderData) {
-    const { sequelize, models: { Order, OrderItem, Menu } } = orm;
+    const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
     return await sequelize.transaction(async (t) => {
-      const created = await Order.create({
+      const created = await OrderModel.create({
         customer_id: orderData.customer_id || null,
         customer_info: orderData.customer_info,
         status: ORDER_STATUS.PENDING,
@@ -23,15 +23,16 @@ class Order {
         quantity: i.quantity,
         price: i.price,
       }));
+      
       if (itemsPayload.length > 0) {
-        await OrderItem.bulkCreate(itemsPayload, { transaction: t });
+        await OrderItemModel.bulkCreate(itemsPayload, { transaction: t });
       }
 
-      const full = await Order.findByPk(created.id, {
+      const full = await OrderModel.findByPk(created.id, {
         include: [{
-          model: OrderItem,
+          model: OrderItemModel,
           as: 'items',
-          include: [{ model: Menu, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
+          include: [{ model: MenuModel, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
         }],
         transaction: t,
       });
@@ -55,12 +56,12 @@ class Order {
   }
 
   static async findById(id, locale = null) {
-    const { models: { Order, OrderItem, Menu } } = orm;
-    const order = await Order.findByPk(id, {
+    const { models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
+    const order = await OrderModel.findByPk(id, {
       include: [{
-        model: OrderItem,
+        model: OrderItemModel,
         as: 'items',
-        include: [{ model: Menu, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
+        include: [{ model: MenuModel, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
       }]
     });
     if (!order) return null;
@@ -83,7 +84,7 @@ class Order {
   }
 
   static async findAll(filters = {}, sortBy = 'created_at', sortOrder = 'DESC', locale = null) {
-    const { models: { Order, OrderItem, Menu } } = orm;
+    const { models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
     const where = {};
     if (filters.status) where.status = filters.status;
     if (filters.customer_id) where.customer_id = filters.customer_id;
@@ -92,14 +93,16 @@ class Order {
       const end = new Date(filters.date + 'T23:59:59.999Z');
       where.created_at = { [Op.between]: [start, end] };
     }
-    const orders = await Order.findAll({
+    const safeSortBy = ['created_at', 'updated_at', 'total', 'status'].includes(sortBy) ? sortBy : 'created_at';
+    const orders = await OrderModel.findAll({
       where,
       include: [{
-        model: OrderItem,
+        model: OrderItemModel,
         as: 'items',
-        include: [{ model: Menu, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
+        include: [{ model: MenuModel, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
       }],
-      order: [[sortBy, sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC']],
+      // Use simple column ordering to avoid alias issues in Postgres
+      order: [[safeSortBy, sortOrder && String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC']],
     });
     return orders.map(o => {
       const plain = o.get({ plain: true });
@@ -122,16 +125,16 @@ class Order {
   }
 
   static async updateStatus(id, status) {
-    const { models: { Order } } = orm;
-    await Order.update({ status }, { where: { id } });
-    const updated = await Order.findByPk(id);
+    const { models: { Order: OrderModel } } = orm;
+    await OrderModel.update({ status }, { where: { id } });
+    const updated = await OrderModel.findByPk(id);
     return updated ? updated.get({ plain: true }) : null;
   }
 
   static async update(id, orderData) {
-    const { sequelize, models: { Order, OrderItem } } = orm;
+    const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
     return await sequelize.transaction(async (t) => {
-      const [count] = await Order.update({
+      const [count] = await OrderModel.update({
         customer_id: orderData.customer_id || null,
         customer_info: orderData.customer_info,
         total: orderData.total,
@@ -139,7 +142,7 @@ class Order {
         notes: orderData.notes || null,
       }, { where: { id }, transaction: t });
       if (!count) throw new Error('Order not found');
-      await OrderItem.destroy({ where: { order_id: id }, transaction: t });
+      await OrderItemModel.destroy({ where: { order_id: id }, transaction: t });
       const itemsPayload = (orderData.items || []).map(i => ({
         order_id: id,
         menu_id: i.menu_id,
@@ -148,40 +151,40 @@ class Order {
         price: i.price,
       }));
       if (itemsPayload.length > 0) {
-        await OrderItem.bulkCreate(itemsPayload, { transaction: t });
+        await OrderItemModel.bulkCreate(itemsPayload, { transaction: t });
       }
       return await Order.findById(id);
     });
   }
 
   static async delete(id) {
-    const { sequelize, models: { Order } } = orm;
+    const { sequelize, models: { Order: OrderModel } } = orm;
     return await sequelize.transaction(async (t) => {
       const order = await Order.findById(id);
       if (!order) return null;
-      await Order.destroy({ where: { id }, transaction: t });
+      await OrderModel.destroy({ where: { id }, transaction: t });
       return order;
     });
   }
 
   static async getTodaySales() {
-    const { models: { Order } } = orm;
+    const { models: { Order: OrderModel } } = orm;
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     const end = new Date();
     end.setHours(23, 59, 59, 999);
     const where = { created_at: { [Op.between]: [start, end] } };
     const [total_orders, total_revenue, completed_orders, pending_orders] = await Promise.all([
-      Order.count({ where }),
-      Order.sum('total', { where }).then(v => v || 0),
-      Order.count({ where: { ...where, status: ORDER_STATUS.COMPLETED } }),
-      Order.count({ where: { ...where, status: ORDER_STATUS.PENDING } }),
+      OrderModel.count({ where }),
+      OrderModel.sum('total', { where }).then(v => v || 0),
+      OrderModel.count({ where: { ...where, status: ORDER_STATUS.COMPLETED } }),
+      OrderModel.count({ where: { ...where, status: ORDER_STATUS.PENDING } }),
     ]);
     return { total_orders, total_revenue, completed_orders, pending_orders };
   }
 
   static async getSalesInsights(startDate = null, endDate = null, locale = 'en') {
-    const { models: { Order } } = orm;
+    const { models: { Order: OrderModel } } = orm;
     let start, end;
     if (startDate && endDate) {
       start = new Date(startDate + 'T00:00:00.000Z');
@@ -194,7 +197,7 @@ class Order {
       start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     }
 
-    const daily = await Order.findAll({
+    const daily = await OrderModel.findAll({
       attributes: [
         [fn('DATE_TRUNC', 'day', col('created_at')), 'order_date'],
         [fn('COUNT', col('id')), 'total_orders'],
@@ -213,7 +216,7 @@ class Order {
       raw: true,
     });
 
-    const summaryRaw = await Order.findAll({
+    const summaryRaw = await OrderModel.findAll({
       attributes: [
         [fn('COUNT', col('id')), 'total_orders'],
         [fn('COALESCE', fn('SUM', col('total')), 0), 'total_revenue'],
