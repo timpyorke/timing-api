@@ -21,6 +21,9 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Mount LINE webhook BEFORE body parsers to preserve raw body for signature verification
+app.use('/api/line', require('./routes/line'));
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -37,7 +40,7 @@ app.use('/api-docs', swagger.serve, swagger.setup);
 // Routes
 app.use('/api', require('./routes/customer'));
 app.use('/api/admin', require('./routes/admin'));
-// LINE webhook routes removed per request
+// LINE webhook mounted above body parsers
 
 /**
  * @swagger
