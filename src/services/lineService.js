@@ -47,10 +47,12 @@ function buildOrderCreatedMessage(order) {
   const orderNumber = order?.id ?? order?.order_number ?? '—';
   const createdAt = order?.created_at || new Date().toISOString();
   const timePart = formatOrderDate(createdAt);
+  const customerName = order?.customer_name ? order?.customer_name :'Customer';
+  const note = order?.notes ? ` (${order.notes})` : '';
 
   // Items may come localized from Order model
   const items = Array.isArray(order?.items) ? order.items : [];
-  const itemLines = items.map(it => `- ${it.quantity}x ${it.menu_name || it.name || 'Item'}`);
+  const itemLines = items.map(it => `# ${it.quantity}x ${it.menu_name || it.name || 'Item'}`);
 
   const header = `Order #${orderNumber}`;
   const atLine = `At  ${timePart}`; // double space as provided in template
@@ -62,8 +64,12 @@ function buildOrderCreatedMessage(order) {
     header,
     atLine,
     divider,
+    customerName,
+    divider,
     itemHeader,
     ...itemLines,
+    divider,
+    note,
     divider,
     link,
   ];
