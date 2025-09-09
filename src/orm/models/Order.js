@@ -9,7 +9,7 @@ module.exports = (sequelize) => {
     discount_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     total: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     // Map "notes" model attribute to legacy DB column "note"
-    notes: { type: DataTypes.STRING(100), allowNull: true, field: 'note' },
+    notes: { type: DataTypes.STRING(100), allowNull: true, field: 'notes' },
     // customer_locale column may not exist in some DBs; omit to prevent SELECT errors
   });
 
