@@ -3,9 +3,8 @@ const router = express.Router();
 const cache = require('memory-cache');
 const Menu = require('../models/Menu');
 const Order = require('../models/Order');
-const OneSignalNotificationService = require('../services/oneSignalNotificationService');
-const LineNotificationService = require('../services/lineNotificationService');
 const websocketService = require('../services/websocketService');
+const lineService = require('../services/lineService');
 const { validateOrder, validateId } = require('../middleware/validation');
 const { sendSuccess, sendError, handleDatabaseError, asyncHandler } = require('../utils/responseHelpers');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
@@ -211,24 +210,12 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
     return sendError(res, 'Failed to create order', 500);
   }
 
-  // Send notifications to admins
-  
-  // Send OneSignal notification
+  // Send LINE notification (fire-and-forget)
   try {
-    await OneSignalNotificationService.sendOrderNotification(order, locale);
-    console.log(`OneSignal notification sent successfully for order ${order.id}`);
-  } catch (notificationError) {
-    console.error('Failed to send OneSignal notification for order', order.id, ':', notificationError.message);
-    // Don't fail the order creation if notification fails
-  }
-
-  // Send LINE notification
-  try {
-    await LineNotificationService.sendOrderNotification(order, locale);
-    console.log(`LINE notification sent successfully for order ${order.id}`);
-  } catch (notificationError) {
-    console.error('Failed to send LINE notification for order', order.id, ':', notificationError.message);
-    // Don't fail the order creation if notification fails
+    lineService.sendOrderCreatedNotification(order)
+      .catch(err => console.warn('LINE notify (customer create) failed:', err?.message || err));
+  } catch (e) {
+    console.warn('LINE notify (customer create) setup error:', e?.message || e);
   }
 
   sendSuccess(res, order, SUCCESS_MESSAGES.ORDER_CREATED, 201);

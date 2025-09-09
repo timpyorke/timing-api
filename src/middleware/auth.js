@@ -54,7 +54,7 @@ const authenticateToken = async (req, res, next) => {
     console.error('❌ Token verification error:', {
       errorCode: error.code,
       errorMessage: error.message,
-      tokenLength: token ? token.length : 'undefined',
+      tokenLength: token?.length ?? 0,
       timestamp: new Date().toISOString()
     });
     

@@ -35,7 +35,7 @@ const validateMenu = [
   body('category_th').notEmpty().withMessage('Thai category is required'),
   body('base_price').isFloat({ min: 0 }).withMessage('Base price must be a positive number'),
   body('image_url').optional().custom((value) => {
-    if (value === null || value === '' || value === undefined) {
+    if (value == null || value === '') {
       return true;
     }
     return /^https?:\/\/.+/.test(value);

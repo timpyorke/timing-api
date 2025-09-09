@@ -2,11 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
 const Menu = require('../models/Menu');
-const OneSignalToken = require('../models/OneSignalToken');
-const LineToken = require('../models/LineToken');
-const OneSignalNotificationService = require('../services/oneSignalNotificationService');
-const LineNotificationService = require('../services/lineNotificationService');
 const websocketService = require('../services/websocketService');
+const lineService = require('../services/lineService');
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const { 
   validateOrderStatus, 
@@ -74,7 +71,7 @@ const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/login', validateLogin, asyncHandler(async (req, res) => {
-  const { username, password, player_id } = req.body;
+  const { username, password } = req.body;
   
   // Simple hardcoded admin authentication (replace with database lookup in production)
   if (username !== 'admin' || password !== 'admin123') {
@@ -88,19 +85,6 @@ router.post('/login', validateLogin, asyncHandler(async (req, res) => {
     uid: 'admin-uid-12345'
   };
   const token = generateToken(payload);
-  
-  // Store OneSignal player ID if provided
-  if (player_id) {
-    try {
-      await OneSignalToken.store(player_id, payload.uid, {
-        userAgent: req.headers['user-agent'],
-        ip: req.ip,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error('Error storing OneSignal player ID:', error);
-    }
-  }
   
   sendSuccess(res, { token }, 'Login successful');
 }));
@@ -147,29 +131,7 @@ router.post('/login', validateLogin, asyncHandler(async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/onesignal-token', authenticateToken, validateOneSignalPlayerId, asyncHandler(async (req, res) => {
-  const { player_id } = req.body;
-  
-  // Store OneSignal player ID with optional device info
-  const deviceInfo = {
-    userAgent: req.headers['user-agent'],
-    ip: req.ip,
-    timestamp: new Date().toISOString()
-  };
-  
-  const storedToken = await OneSignalToken.store(player_id, req.user.uid, deviceInfo);
-  
-  const responseData = {
-    token_id: storedToken.id,
-    user: {
-      uid: req.user.uid,
-      email: req.user.email,
-      email_verified: req.user.email_verified
-    }
-  };
-  
-  sendSuccess(res, responseData, 'OneSignal player ID stored successfully');
-}));
+// Removed OneSignal token storage endpoint per request
 
 /**
  * @swagger
@@ -224,31 +186,7 @@ router.post('/onesignal-token', authenticateToken, validateOneSignalPlayerId, as
  *       500:
  *         description: Server error
  */
-router.post('/line-token', authenticateToken, asyncHandler(async (req, res) => {
-  const { line_user_id, user_info } = req.body;
-
-  if (!line_user_id || typeof line_user_id !== 'string') {
-    return sendError(res, 'Valid LINE user ID is required', 400);
-  }
-
-  // Store LINE user ID with optional user info
-  const userInfo = {
-    ...user_info,
-    stored_at: new Date().toISOString(),
-    stored_by: req.user.uid
-  };
-
-  const storedToken = await LineToken.store(line_user_id, req.user.uid, userInfo);
-
-  const responseData = {
-    line_user_id: storedToken.line_user_id,
-    user_id: storedToken.user_id,
-    created_at: storedToken.created_at,
-    updated_at: storedToken.updated_at
-  };
-
-  sendSuccess(res, responseData, 'LINE user ID stored successfully');
-}));
+// Removed LINE token storage endpoint per request
 
 /**
  * @swagger
@@ -449,6 +387,14 @@ router.post('/orders', authenticateToken, async (req, res) => {
 
     // Create the order
     const order = await Order.create(orderData);
+
+    // Fire-and-forget LINE notification (do not block response)
+    try {
+      lineService.sendOrderCreatedNotification(order)
+        .catch(err => console.warn('LINE notify (admin create) failed:', err?.message || err));
+    } catch (e) {
+      console.warn('LINE notify (admin create) setup error:', e?.message || e);
+    }
 
     res.status(201).json({
       success: true,
@@ -714,18 +660,11 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
     // Update order status
     const updatedOrder = await Order.updateStatus(orderId, status);
 
-    // Send status update notifications (OneSignal, LINE, and real-time)
+    // Send real-time status update via WebSocket (push notifications removed)
     try {
-      await OneSignalNotificationService.sendOrderStatusUpdate(updatedOrder, status);
       websocketService.sendOrderStatusUpdate(updatedOrder, status);
     } catch (notificationError) {
-      console.error('Failed to send OneSignal status update notification:', notificationError);
-    }
-
-    try {
-      await LineNotificationService.sendOrderStatusUpdate(updatedOrder, status);
-    } catch (notificationError) {
-      console.error('Failed to send LINE status update notification:', notificationError);
+      console.error('Failed to send WebSocket status update notification:', notificationError);
     }
 
     res.json({
@@ -916,7 +855,7 @@ router.post('/menu', authenticateToken, validateMenu, async (req, res) => {
       image_url: req.body.image_url || null,
       customizations: req.body.customizations || {},
       customizations_en: req.body.customizations_en || {},
-      active: req.body.active !== undefined ? req.body.active : true
+      active: req.body.active ?? true
     };
 
     const menuItem = await Menu.create(menuData);
@@ -1019,7 +958,7 @@ router.put('/menu/:id', authenticateToken, validateId, validateMenu, async (req,
       image_url: req.body.image_url || null,
       customizations: req.body.customizations || {},
       customizations_en: req.body.customizations_en || {},
-      active: req.body.active !== undefined ? req.body.active : true
+      active: req.body.active ?? true
     };
 
     const updatedMenuItem = await Menu.update(menuId, menuData);
@@ -1546,47 +1485,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-// Test notification endpoint (for debugging)
-router.post('/test-notification', authenticateToken, async (req, res) => {
-  try {
-    const { title, body } = req.body;
-    
-    // Get user's OneSignal player IDs or admin player IDs
-    let userPlayerIds = [];
-    
-    // Check if user is admin (JWT token) or regular user
-    if (req.user.role === 'admin') {
-      // For admin users, get all available player IDs since admin can test all devices
-      userPlayerIds = await OneSignalToken.getAll();
-    } else {
-      // For regular users, get their specific player IDs
-      userPlayerIds = await OneSignalToken.findByUserId(req.user.uid);
-    }
-    
-    // Fallback if no player IDs found
-    if (userPlayerIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No OneSignal player IDs found'
-      });
-    }
-    
-    // Use first available player ID for testing
-    const playerIdToUse = Array.isArray(userPlayerIds) ? userPlayerIds[0] : userPlayerIds[0].player_id;
-    await OneSignalNotificationService.testNotification(playerIdToUse, title, body);
-    
-    res.json({
-      success: true,
-      message: 'Test notification sent'
-    });
-  } catch (error) {
-    console.error('Error sending test notification:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to send test notification'
-    });
-  }
-});
+// Removed OneSignal test notification endpoint per request
 
 /**
  * @swagger
@@ -1647,47 +1546,7 @@ router.post('/test-notification', authenticateToken, async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 // Test LINE notification endpoint (for debugging)
-router.post('/test-line-notification', authenticateToken, async (req, res) => {
-  try {
-    const { title, body } = req.body;
-    
-    // Get user's LINE user IDs or admin LINE user IDs
-    let userLineIds = [];
-    
-    // Check if user is admin (JWT token) or regular user
-    if (req.user.role === 'admin') {
-      // For admin users, get all available LINE user IDs since admin can test all devices
-      userLineIds = await LineToken.getAll();
-    } else {
-      // For regular users, get their specific LINE user IDs
-      const userTokens = await LineToken.findByUserId(req.user.uid);
-      userLineIds = userTokens.map(token => token.line_user_id);
-    }
-    
-    // Fallback if no LINE user IDs found
-    if (userLineIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No LINE user IDs found'
-      });
-    }
-    
-    // Use first available LINE user ID for testing
-    const lineUserIdToUse = userLineIds[0];
-    await LineNotificationService.testNotification(lineUserIdToUse, title, body);
-    
-    res.json({
-      success: true,
-      message: 'Test LINE notification sent'
-    });
-  } catch (error) {
-    console.error('Error sending test LINE notification:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to send test LINE notification'
-    });
-  }
-});
+// Removed test LINE notification endpoint per request
 
 /**
  * @swagger
