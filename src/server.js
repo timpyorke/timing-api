@@ -31,8 +31,17 @@ app.use(express.urlencoded({ extended: true }));
 // Locale middleware
 app.use(require('./middleware/locale'));
 
-// Serve static files
-app.use(express.static('public'));
+// Serve static files with caching for images
+app.use(express.static('public', {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    if (/\.(?:png|jpe?g|gif|webp|svg)$/i.test(filePath)) {
+      // 7 days for images; adjust if filenames are content-hashed
+      res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=59');
+    }
+  }
+}));
 
 // Swagger documentation
 app.use('/api-docs', swagger.serve, swagger.setup);
@@ -40,6 +49,8 @@ app.use('/api-docs', swagger.serve, swagger.setup);
 // Routes
 app.use('/api', require('./routes/customer'));
 app.use('/api/admin', require('./routes/admin'));
+// Lightweight image proxy with in-memory cache (optional; see .env.example)
+app.use('/img', require('./routes/imageProxy'));
 // LINE webhook mounted above body parsers
 
 // Ensure DB schema pieces exist (e.g., line_tokens)
