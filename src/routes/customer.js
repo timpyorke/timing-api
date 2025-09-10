@@ -153,7 +153,7 @@ router.get('/menu/:id', validateId, asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
-  const locale = req.locale || 'en';
+  const locale = req.locale || DEFAULT_LOCALE;
   const orderData = {
     customer_id: req.body.customer_id,
     customer_info: req.body.customer_info,
