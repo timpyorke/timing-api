@@ -10,22 +10,34 @@ const PROXY_BASE = ((process.env.PUBLIC_BASE_URL || process.env.IMAGE_PROXY_ORIG
   .trim()
   .replace(/\/$/, '');
 
-function buildProxiedUrl(url) {
+function buildBaseFromRequest(req) {
+  if (!req) return '';
+  // Prefer forwarded headers if behind a proxy (requires trust proxy for req.protocol)
+  const xfProto = (req.headers['x-forwarded-proto'] || '').toString().split(',')[0].trim();
+  const proto = xfProto || req.protocol || 'http';
+  const xfHost = (req.headers['x-forwarded-host'] || '').toString().split(',')[0].trim();
+  const host = xfHost || req.headers.host || '';
+  if (!host) return '';
+  return `${proto}://${host}`.replace(/\/$/, '');
+}
+
+function buildProxiedUrl(url, baseOverride) {
   if (typeof url !== 'string' || url.length === 0) return url;
   // Avoid double-proxying
+  const effectiveBase = (baseOverride || PROXY_BASE || '').trim();
   if (url.startsWith('/img?url=')) {
-    return PROXY_BASE ? `${PROXY_BASE}${url}` : url;
+    return effectiveBase ? `${effectiveBase}${url}` : url;
   }
   // Only proxy absolute http/https URLs; leave relative or data/blob URLs as-is
   if (!/^https?:\/\//i.test(url)) return url;
   const encoded = encodeURIComponent(url);
   const proxiedPath = `/img?url=${encoded}`;
-  return PROXY_BASE ? `${PROXY_BASE}${proxiedPath}` : proxiedPath;
+  return effectiveBase ? `${effectiveBase}${proxiedPath}` : proxiedPath;
 }
 
-function rewriteImageUrlsDeep(value, seen = new WeakSet()) {
+function rewriteImageUrlsDeep(value, seen = new WeakSet(), baseOverride = '') {
   if (Array.isArray(value)) {
-    return value.map(v => rewriteImageUrlsDeep(v, seen));
+    return value.map(v => rewriteImageUrlsDeep(v, seen, baseOverride));
   }
   if (value && typeof value === 'object') {
     // Prevent cycles
@@ -34,9 +46,9 @@ function rewriteImageUrlsDeep(value, seen = new WeakSet()) {
     const out = Array.isArray(value) ? [] : {};
     for (const key of Object.keys(value)) {
       if (key === 'image_url') {
-        out[key] = buildProxiedUrl(value[key]);
+        out[key] = buildProxiedUrl(value[key], baseOverride);
       } else {
-        out[key] = rewriteImageUrlsDeep(value[key], seen);
+        out[key] = rewriteImageUrlsDeep(value[key], seen, baseOverride);
       }
     }
     return out;
@@ -55,7 +67,12 @@ function rewriteImageUrlsDeep(value, seen = new WeakSet()) {
 const sendSuccess = (res, data, messageKey = null, statusCode = 200, messageParams = {}) => {
   const req = res.req;
   const locale = req ? localization.getLocaleFromRequest(req) : 'en';
-  const payload = SHOULD_REWRITE_IMAGES ? rewriteImageUrlsDeep(data) : data;
+  let baseOverride = '';
+  if (SHOULD_REWRITE_IMAGES) {
+    // Prefer configured base, otherwise derive from request
+    baseOverride = PROXY_BASE || buildBaseFromRequest(req) || '';
+  }
+  const payload = SHOULD_REWRITE_IMAGES ? rewriteImageUrlsDeep(data, new WeakSet(), baseOverride) : data;
   const response = {
     success: true,
     data: payload

@@ -11,6 +11,8 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 8000;
 
 // Security middleware
+// If behind a reverse proxy (Vercel, Heroku, NGiNX), trust proxy so req.protocol honors X-Forwarded-Proto
+app.set('trust proxy', true);
 app.use(helmet());
 app.use(cors());
 
