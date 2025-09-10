@@ -11,6 +11,8 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 8000;
 
 // Security middleware
+// If behind a reverse proxy (Vercel, Heroku, NGiNX), trust proxy so req.protocol honors X-Forwarded-Proto
+app.set('trust proxy', true);
 app.use(helmet());
 app.use(cors());
 
@@ -31,6 +33,10 @@ app.use(express.urlencoded({ extended: true }));
 // Locale middleware
 app.use(require('./middleware/locale'));
 
+// Lightweight image proxy with in-memory cache (optional; see .env.example)
+// Mount BEFORE static to avoid any potential path conflicts (e.g., public/img).
+app.use('/img', require('./routes/imageProxy'));
+
 // Serve static files with caching for images
 app.use(express.static('public', {
   etag: true,
@@ -49,8 +55,6 @@ app.use('/api-docs', swagger.serve, swagger.setup);
 // Routes
 app.use('/api', require('./routes/customer'));
 app.use('/api/admin', require('./routes/admin'));
-// Lightweight image proxy with in-memory cache (optional; see .env.example)
-app.use('/img', require('./routes/imageProxy'));
 // LINE webhook mounted above body parsers
 
 // Ensure DB schema pieces exist (e.g., line_tokens)
