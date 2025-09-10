@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { LOG_MESSAGES } = require('../utils/constants');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -18,12 +19,12 @@ const pool = new Pool({
 // Connection event handlers
 pool.on('connect', (client) => {
   if (process.env.NODE_ENV !== 'test') {
-    console.log('Connected to PostgreSQL database');
+    console.log(LOG_MESSAGES.DB_CONNECTED);
   }
 });
 
 pool.on('error', (err, client) => {
-  console.error('Database connection error:', err);
+  console.error(LOG_MESSAGES.DB_CONNECTION_ERROR_PREFIX, err);
 });
 
 pool.on('acquire', (client) => {
@@ -36,9 +37,9 @@ pool.on('release', (client) => {
 
 // Graceful pool shutdown
 const gracefulShutdown = async () => {
-  console.log('Shutting down database pool...');
+  console.log(LOG_MESSAGES.DB_POOL_SHUTTING_DOWN);
   await pool.end();
-  console.log('Database pool closed');
+  console.log(LOG_MESSAGES.DB_POOL_CLOSED);
 };
 
 process.on('SIGTERM', gracefulShutdown);

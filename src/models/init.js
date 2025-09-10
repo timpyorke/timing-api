@@ -16,12 +16,13 @@ async function initSchema() {
   try {
     await pool.query(createLineTokens);
     if (process.env.NODE_ENV !== 'test') {
-      console.log('DB init: ensured table line_tokens');
+      const { LOG_MESSAGES } = require('../utils/constants');
+      console.log(LOG_MESSAGES.MODELS_INIT_TABLE_ENSURED);
     }
   } catch (err) {
-    console.error('DB init: failed to ensure line_tokens table', err.message);
+    const { LOG_MESSAGES } = require('../utils/constants');
+    console.error(LOG_MESSAGES.MODELS_INIT_TABLE_FAILED_PREFIX, err.message);
   }
 }
 
 module.exports = initSchema;
-

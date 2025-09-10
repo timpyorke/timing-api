@@ -3,6 +3,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const pool = require('../config/database');
+const { LOG_MESSAGES } = require('../utils/constants');
 
 const MIGRATIONS_DIR = path.join(__dirname, '../../migrations');
 
@@ -16,9 +17,9 @@ async function createMigrationsTable() {
         executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Migrations table ready');
+    console.log(LOG_MESSAGES.MIGRATIONS_TABLE_READY);
   } catch (error) {
-    console.error('❌ Failed to create migrations table:', error.message);
+    console.error(LOG_MESSAGES.MIGRATIONS_CREATE_TABLE_FAILED_PREFIX, error.message);
     throw error;
   } finally {
     client.release();
@@ -31,7 +32,7 @@ async function getExecutedMigrations() {
     const result = await client.query('SELECT name FROM migrations ORDER BY id');
     return result.rows.map(row => row.name);
   } catch (error) {
-    console.error('❌ Failed to get executed migrations:', error.message);
+    console.error(LOG_MESSAGES.MIGRATIONS_GET_EXECUTED_FAILED_PREFIX, error.message);
     return [];
   } finally {
     client.release();
@@ -42,9 +43,9 @@ async function recordMigration(name) {
   const client = await pool.connect();
   try {
     await client.query('INSERT INTO migrations (name) VALUES ($1)', [name]);
-    console.log(`📝 Recorded migration: ${name}`);
+    console.log(`${LOG_MESSAGES.MIGRATIONS_RECORDED_PREFIX} ${name}`);
   } catch (error) {
-    console.error(`❌ Failed to record migration ${name}:`, error.message);
+    console.error(`${LOG_MESSAGES.MIGRATIONS_RECORD_FAILED_PREFIX} ${name}:`, error.message);
     throw error;
   } finally {
     client.release();
@@ -52,12 +53,12 @@ async function recordMigration(name) {
 }
 
 async function runMigrations() {
-  console.log('🚀 Starting database migrations...');
+  console.log(LOG_MESSAGES.MIGRATIONS_STARTING);
   
   await createMigrationsTable();
   
   if (!fs.existsSync(MIGRATIONS_DIR)) {
-    console.log('📁 No migrations directory found');
+    console.log(LOG_MESSAGES.MIGRATIONS_NO_DIR);
     return;
   }
   
@@ -66,18 +67,18 @@ async function runMigrations() {
     .filter(file => file.endsWith('.js'))
     .sort();
   
-  console.log(`📂 Found ${migrationFiles.length} migration files`);
-  console.log(`✅ ${executedMigrations.length} migrations already executed`);
+  console.log(`${LOG_MESSAGES.MIGRATIONS_FOUND_FILES_PREFIX} ${migrationFiles.length} migration files`);
+  console.log(`${LOG_MESSAGES.MIGRATIONS_ALREADY_EXECUTED_PREFIX} ${executedMigrations.length} migrations already executed`);
   
   for (const file of migrationFiles) {
     const migrationName = path.basename(file, '.js');
     
     if (executedMigrations.includes(migrationName)) {
-      console.log(`⏭️  Skipping ${migrationName} (already executed)`);
+      console.log(`${LOG_MESSAGES.MIGRATIONS_SKIPPING_PREFIX} ${migrationName} (already executed)`);
       continue;
     }
     
-    console.log(`🔄 Running migration: ${migrationName}`);
+    console.log(`${LOG_MESSAGES.MIGRATIONS_RUNNING_PREFIX} ${migrationName}`);
     
     try {
       const migrationPath = path.join(MIGRATIONS_DIR, file);
@@ -90,26 +91,26 @@ async function runMigrations() {
       await migration.up();
       await recordMigration(migrationName);
       
-      console.log(`✅ Completed migration: ${migrationName}`);
+      console.log(`${LOG_MESSAGES.MIGRATIONS_COMPLETED_PREFIX} ${migrationName}`);
       
     } catch (error) {
-      console.error(`❌ Migration ${migrationName} failed:`, error.message);
+      console.error(`${LOG_MESSAGES.MIGRATIONS_FAILED_PREFIX} ${migrationName}:`, error.message);
       throw error;
     }
   }
   
-  console.log('🎉 All migrations completed successfully!');
+  console.log(LOG_MESSAGES.MIGRATIONS_ALL_DONE);
 }
 
 // Run migrations if called directly
 if (require.main === module) {
   runMigrations()
     .then(() => {
-      console.log('✨ Migration process completed');
+      console.log(LOG_MESSAGES.MIGRATIONS_PROCESS_COMPLETED);
       process.exit(0);
     })
     .catch((error) => {
-      console.error('💥 Migration process failed:', error);
+      console.error(LOG_MESSAGES.MIGRATIONS_PROCESS_FAILED_PREFIX, error);
       process.exit(1);
     });
 }

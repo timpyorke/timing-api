@@ -1,5 +1,6 @@
 const line = require('@line/bot-sdk');
-const pool = require('../config/database');
+const orm = require('../orm');
+const { LINE_MESSAGES, LOG_MESSAGES } = require('../utils/constants');
 
 // Initialize LINE client using channel access token
 const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -8,18 +9,23 @@ let lineClient = null;
 if (channelAccessToken) {
   lineClient = new line.Client({ channelAccessToken });
 } else {
-  console.warn('LINE_CHANNEL_ACCESS_TOKEN is not set. LINE notifications are disabled.');
+  console.warn(LOG_MESSAGES.LINE_TOKEN_MISSING_WARN);
 }
 
 // Helper to fetch all registered LINE user IDs from DB
 async function getAllLineUserIds() {
   try {
-    const result = await pool.query('SELECT line_user_id FROM line_tokens');
-    const ids = result.rows.map(r => r.line_user_id).filter(Boolean);
+    const { LineToken } = orm.models;
+    if (!LineToken) {
+      console.error(LOG_MESSAGES.ORM_LINE_TOKEN_NOT_INITIALIZED);
+      return [];
+    }
+    const rows = await LineToken.findAll({ attributes: ['line_user_id'], raw: true });
+    const ids = rows.map(r => r.line_user_id).filter(Boolean);
     // Deduplicate
     return Array.from(new Set(ids));
   } catch (err) {
-    console.error('Failed to fetch LINE user IDs:', err.message);
+    console.error(LOG_MESSAGES.FETCH_LINE_IDS_FAILED_PREFIX, err.message);
     return [];
   }
 }
@@ -52,13 +58,13 @@ function buildOrderCreatedMessage(order) {
 
   // Items may come localized from Order model
   const items = Array.isArray(order?.items) ? order.items : [];
-  const itemLines = items.map(it => `# ${it.quantity}x ${it.menu_name || it.name || 'Item'}`);
+  const itemLines = items.map(it => `# ${it.quantity}x ${it.menu_name || it.name || LINE_MESSAGES.ITEM_HEADER}`);
 
-  const header = `Order #${orderNumber}`;
-  const atLine = `At  ${timePart}`; // double space as provided in template
-  const divider = '---';
-  const itemHeader = 'Item';
-  const link = `https://timing-backoffice.vercel.app/orders/${orderNumber}`;
+  const header = `${LINE_MESSAGES.ORDER_HEADER_PREFIX}${orderNumber}`;
+  const atLine = `${LINE_MESSAGES.AT_LABEL_PREFIX}${timePart}`; // double space as provided in template
+  const divider = LINE_MESSAGES.DIVIDER;
+  const itemHeader = LINE_MESSAGES.ITEM_HEADER;
+  const link = `${LINE_MESSAGES.BACKOFFICE_ORDER_URL_PREFIX}${orderNumber}`;
 
   const parts = [
     header,
@@ -81,11 +87,11 @@ function buildOrderCreatedMessage(order) {
 async function pushToAll(message) {
   const ids = await getAllLineUserIds();
   if (!ids.length) {
-    console.warn('No LINE user IDs found; skipping LINE notification');
+    console.warn(LOG_MESSAGES.LINE_NO_RECIPIENTS_WARN);
     return { sent: 0, recipients: [] };
   }
   if (!lineClient) {
-    console.warn('LINE client is not initialized; skipping LINE notification');
+    console.warn(LOG_MESSAGES.LINE_CLIENT_NOT_INIT_WARN);
     return { sent: 0, recipients: [] };
   }
 
@@ -97,7 +103,7 @@ async function pushToAll(message) {
   const success = results.filter(r => r.status === 'fulfilled').length;
   const failed = results.length - success;
   if (failed) {
-    console.warn(`LINE notifications: ${success} sent, ${failed} failed`);
+    console.warn(`${LOG_MESSAGES.LINE_NOTIFY_SUMMARY_PREFIX} ${success} sent, ${failed} failed`);
   }
   return { sent: success, recipients: ids };
 }
@@ -107,7 +113,7 @@ async function sendOrderCreatedNotification(order) {
     const message = buildOrderCreatedMessage(order);
     return await pushToAll(message);
   } catch (err) {
-    console.error('Failed to send LINE order created notification:', err.message);
+    console.error(LOG_MESSAGES.LINE_ORDER_NOTIFY_FAILED_PREFIX, err.message);
     return { sent: 0, recipients: [] };
   }
 }
@@ -116,4 +122,3 @@ module.exports = {
   sendOrderCreatedNotification,
   buildOrderCreatedMessage,
 };
-
