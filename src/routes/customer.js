@@ -161,8 +161,7 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
     total: req.body.total,
     discount_amount: req.body.discount_amount || 0,
     customer_locale: locale,
-    notes: req.body.notes,
-    notes_th: req.body.notes_th
+    notes: req.body.notes
   };
 
   // Validate that menu items exist and calculate total

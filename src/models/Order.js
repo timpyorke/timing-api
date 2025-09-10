@@ -1,361 +1,289 @@
-const { executeQuery, executeTransaction } = require('../utils/database');
 const { ORDER_STATUS } = require('../utils/constants');
-const { buildWhereClause, buildOrderByClause } = require('../utils/queryOptimizer');
+const { Op, fn, col, literal } = require('sequelize');
+const orm = require('../orm');
 
 class Order {
   static async create(orderData) {
-    return executeTransaction(async (client) => {
-      // Insert order
-      const orderQuery = `
-        INSERT INTO orders (customer_id, customer_info, status, discount_amount, total, notes)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING *
-      `;
-      const orderResult = await client.query(orderQuery, [
-        orderData.customer_id || null,
-        orderData.customer_info,
-        ORDER_STATUS.PENDING,
-        orderData.discount_amount || 0,
-        orderData.total,
-        orderData.notes || null,
-      ]);
+    const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
+    return await sequelize.transaction(async (t) => {
+      const created = await OrderModel.create({
+        customer_id: orderData.customer_id || null,
+        customer_info: orderData.customer_info,
+        status: ORDER_STATUS.PENDING,
+        discount_amount: orderData.discount_amount || 0,
+        total: orderData.total,
+        notes: orderData.notes || null,
+        customer_locale: orderData.customer_locale || null,
+      }, { transaction: t });
+
+      const itemsPayload = (orderData.items || []).map(i => ({
+        order_id: created.id,
+        menu_id: i.menu_id,
+        customizations: i.customizations,
+        quantity: i.quantity,
+        price: i.price,
+      }));
       
-      const order = orderResult.rows[0];
-      
-      // Insert order items
-      for (const item of orderData.items) {
-        const itemQuery = `
-          INSERT INTO order_items (order_id, menu_id, customizations, quantity, price)
-          VALUES ($1, $2, $3, $4, $5)
-        `;
-        await client.query(itemQuery, [
-          order.id,
-          item.menu_id,
-          item.customizations,
-          item.quantity,
-          item.price
-        ]);
+      if (itemsPayload.length > 0) {
+        await OrderItemModel.bulkCreate(itemsPayload, { transaction: t });
       }
-      
-      // Get the full order with items using the same transaction client
-      const query = `
-        SELECT 
-          o.*,
-          COALESCE(
-            json_agg(
-              json_build_object(
-                'id', oi.id,
-                'menu_id', oi.menu_id,
-                'menu_name', b.name_en,
-                'menu_name_th', b.name_th,
-                'menu_description', b.description_en,
-                'menu_description_th', b.description_th,
-                'image_url', b.image_url,
-                'customizations', oi.customizations,
-                'quantity', oi.quantity,
-                'price', oi.price
-              )
-            ) FILTER (WHERE oi.id IS NOT NULL), 
-            '[]'
-          ) as items
-        FROM orders o
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        LEFT JOIN menus b ON oi.menu_id = b.id
-        WHERE o.id = $1
-        GROUP BY o.id
-      `;
-      const result = await client.query(query, [order.id]);
-      const orderWithItems = result.rows[0];
-      
-      // Add localized fields
-      return this.addLocalizedFields(orderWithItems, orderWithItems.customer_locale || 'en');
+
+      const full = await OrderModel.findByPk(created.id, {
+        include: [{
+          model: OrderItemModel,
+          as: 'items',
+          include: [{ model: MenuModel, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
+        }],
+        transaction: t,
+      });
+
+      const plain = full.get({ plain: true });
+      const items = (plain.items || []).map(oi => ({
+        id: oi.id,
+        menu_id: oi.menu_id,
+        menu_name: oi.menu?.name_en,
+        menu_name_th: oi.menu?.name_th,
+        menu_description: oi.menu?.description_en,
+        menu_description_th: oi.menu?.description_th,
+        image_url: oi.menu?.image_url,
+        customizations: oi.customizations,
+        quantity: oi.quantity,
+        price: oi.price,
+      }));
+      const shaped = { ...plain, items };
+      return this.addLocalizedFields(shaped, shaped.customer_locale || 'en');
     });
   }
 
   static async findById(id, locale = null) {
-    const query = `
-      SELECT 
-        o.*,
-        COALESCE(
-          json_agg(
-            json_build_object(
-              'id', oi.id,
-              'menu_id', oi.menu_id,
-              'menu_name', b.name_en,
-              'menu_name_th', b.name_th,
-              'menu_description', b.description_en,
-              'menu_description_th', b.description_th,
-              'image_url', b.image_url,
-              'customizations', oi.customizations,
-              'quantity', oi.quantity,
-              'price', oi.price
-            )
-          ) FILTER (WHERE oi.id IS NOT NULL), 
-          '[]'
-        ) as items
-      FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN menus b ON oi.menu_id = b.id
-      WHERE o.id = $1
-      GROUP BY o.id
-    `;
-    const result = await executeQuery(query, [id]);
-    const order = result.rows[0];
-    
-    if (order) {
-      // Use provided locale or fallback to customer's locale
-      const orderLocale = locale || order.customer_locale || 'en';
-      return this.addLocalizedFields(order, orderLocale);
-    }
-    
-    return order;
+    const { models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
+    const order = await OrderModel.findByPk(id, {
+      include: [{
+        model: OrderItemModel,
+        as: 'items',
+        include: [{ model: MenuModel, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
+      }]
+    });
+    if (!order) return null;
+    const plain = order.get({ plain: true });
+    const items = (plain.items || []).map(oi => ({
+      id: oi.id,
+      menu_id: oi.menu_id,
+      menu_name: oi.menu?.name_en,
+      menu_name_th: oi.menu?.name_th,
+      menu_description: oi.menu?.description_en,
+      menu_description_th: oi.menu?.description_th,
+      image_url: oi.menu?.image_url,
+      customizations: oi.customizations,
+      quantity: oi.quantity,
+      price: oi.price,
+    }));
+    const shaped = { ...plain, items };
+    const orderLocale = locale || shaped.customer_locale || 'en';
+    return this.addLocalizedFields(shaped, orderLocale);
   }
 
   static async findAll(filters = {}, sortBy = 'created_at', sortOrder = 'DESC', locale = null) {
-    const baseQuery = `
-      SELECT 
-        o.*,
-        COALESCE(
-          json_agg(
-            json_build_object(
-              'id', oi.id,
-              'menu_id', oi.menu_id,
-              'menu_name', b.name_en,
-              'menu_name_th', b.name_th,
-              'menu_description', b.description_en,
-              'menu_description_th', b.description_th,
-              'image_url', b.image_url,
-              'customizations', oi.customizations,
-              'quantity', oi.quantity,
-              'price', oi.price
-            )
-          ) FILTER (WHERE oi.id IS NOT NULL), 
-          '[]'
-        ) as items
-      FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN menus b ON oi.menu_id = b.id
-    `;
-    
-    // Build WHERE clause using optimizer
-    const prefixedFilters = {};
-    Object.entries(filters).forEach(([key, value]) => {
-      if (key === 'status' || key === 'customer_id') {
-        prefixedFilters[`o.${key}`] = value;
-      } else if (key === 'date') {
-        prefixedFilters.date = value; // Special handling in buildWhereClause
-      }
+    const { models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
+    const where = {};
+    if (filters.status) where.status = filters.status;
+    if (filters.customer_id) where.customer_id = filters.customer_id;
+    if (filters.date) {
+      const start = new Date(filters.date + 'T00:00:00.000Z');
+      const end = new Date(filters.date + 'T23:59:59.999Z');
+      where.created_at = { [Op.between]: [start, end] };
+    }
+    const safeSortBy = ['created_at', 'updated_at', 'total', 'status'].includes(sortBy) ? sortBy : 'created_at';
+    const orders = await OrderModel.findAll({
+      where,
+      include: [{
+        model: OrderItemModel,
+        as: 'items',
+        include: [{ model: MenuModel, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
+      }],
+      // Order by base model column without alias to avoid association lookup errors
+      order: [[safeSortBy, sortOrder && String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC']],
     });
-    
-    const { whereClause, values } = buildWhereClause(prefixedFilters);
-    const orderByClause = buildOrderByClause(`o.${sortBy}`, sortOrder, ['created_at', 'updated_at', 'total', 'status']);
-    
-    const query = `${baseQuery} ${whereClause} GROUP BY o.id ${orderByClause}`;
-    
-    const result = await executeQuery(query, values);
-    
-    // Add localized fields to each order
-    return result.rows.map(order => {
-      const orderLocale = locale || order.customer_locale || 'en';
-      return this.addLocalizedFields(order, orderLocale);
+    return orders.map(o => {
+      const plain = o.get({ plain: true });
+      const items = (plain.items || []).map(oi => ({
+        id: oi.id,
+        menu_id: oi.menu_id,
+        menu_name: oi.menu?.name_en,
+        menu_name_th: oi.menu?.name_th,
+        menu_description: oi.menu?.description_en,
+        menu_description_th: oi.menu?.description_th,
+        image_url: oi.menu?.image_url,
+        customizations: oi.customizations,
+        quantity: oi.quantity,
+        price: oi.price,
+      }));
+      const shaped = { ...plain, items };
+      const orderLocale = locale || shaped.customer_locale || 'en';
+      return this.addLocalizedFields(shaped, orderLocale);
     });
   }
 
   static async updateStatus(id, status) {
-    const query = `
-      UPDATE orders 
-      SET status = $1, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = $2 
-      RETURNING *
-    `;
-    const result = await executeQuery(query, [status, id]);
-    return result.rows[0];
+    const { models: { Order: OrderModel } } = orm;
+    await OrderModel.update({ status }, { where: { id } });
+    const updated = await OrderModel.findByPk(id);
+    return updated ? updated.get({ plain: true }) : null;
   }
 
   static async update(id, orderData) {
-    return executeTransaction(async (client) => {
-      // Update order basic info
-      const orderQuery = `
-        UPDATE orders 
-        SET customer_id = $1, customer_info = $2, total = $3, 
-            discount_amount = $4, notes = $5, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $6 
-        RETURNING *
-      `;
-      const orderResult = await client.query(orderQuery, [
-        orderData.customer_id || null,
-        orderData.customer_info,
-        orderData.total,
-        orderData.discount_amount || 0,
-        orderData.notes || null,
-        id
-      ]);
-      
-      if (orderResult.rows.length === 0) {
-        throw new Error('Order not found');
+    const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
+    return await sequelize.transaction(async (t) => {
+      const [count] = await OrderModel.update({
+        customer_id: orderData.customer_id || null,
+        customer_info: orderData.customer_info,
+        total: orderData.total,
+        discount_amount: orderData.discount_amount || 0,
+        notes: orderData.notes || null,
+      }, { where: { id }, transaction: t });
+      if (!count) throw new Error('Order not found');
+      await OrderItemModel.destroy({ where: { order_id: id }, transaction: t });
+      const itemsPayload = (orderData.items || []).map(i => ({
+        order_id: id,
+        menu_id: i.menu_id,
+        customizations: i.customizations,
+        quantity: i.quantity,
+        price: i.price,
+      }));
+      if (itemsPayload.length > 0) {
+        await OrderItemModel.bulkCreate(itemsPayload, { transaction: t });
       }
-      
-      // Delete existing order items
-      await client.query('DELETE FROM order_items WHERE order_id = $1', [id]);
-      
-      // Insert new order items
-      if (orderData.items && orderData.items.length > 0) {
-        for (const item of orderData.items) {
-          const itemQuery = `
-            INSERT INTO order_items (order_id, menu_id, customizations, quantity, price)
-            VALUES ($1, $2, $3, $4, $5)
-          `;
-          await client.query(itemQuery, [
-            id,
-            item.menu_id,
-            item.customizations,
-            item.quantity,
-            item.price
-          ]);
-        }
-      }
-      
       return await Order.findById(id);
     });
   }
 
   static async delete(id) {
-    return executeTransaction(async (client) => {
-      // Get order before deletion for return value
+    const { sequelize, models: { Order: OrderModel } } = orm;
+    return await sequelize.transaction(async (t) => {
       const order = await Order.findById(id);
-      if (!order) {
-        return null;
-      }
-      
-      // Delete order items first (due to foreign key constraint)
-      await client.query('DELETE FROM order_items WHERE order_id = $1', [id]);
-      
-      // Delete order
-      const query = 'DELETE FROM orders WHERE id = $1 RETURNING *';
-      await client.query(query, [id]);
-      
-      return order; // Return the full order with items
+      if (!order) return null;
+      await OrderModel.destroy({ where: { id }, transaction: t });
+      return order;
     });
   }
 
   static async getTodaySales() {
-    const query = `
-      SELECT 
-        COUNT(*) as total_orders,
-        COALESCE(SUM(total), 0) as total_revenue,
-        COUNT(CASE WHEN status = $1 THEN 1 END) as completed_orders,
-        COUNT(CASE WHEN status = $2 THEN 1 END) as pending_orders
-      FROM orders 
-      WHERE DATE(created_at) = CURRENT_DATE
-    `;
-    const result = await executeQuery(query, [ORDER_STATUS.COMPLETED, ORDER_STATUS.PENDING]);
-    return result.rows[0];
+    const { models: { Order: OrderModel } } = orm;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    const where = { created_at: { [Op.between]: [start, end] } };
+    const [total_orders, total_revenue, completed_orders, pending_orders] = await Promise.all([
+      OrderModel.count({ where }),
+      OrderModel.sum('total', { where }).then(v => v || 0),
+      OrderModel.count({ where: { ...where, status: ORDER_STATUS.COMPLETED } }),
+      OrderModel.count({ where: { ...where, status: ORDER_STATUS.PENDING } }),
+    ]);
+    return { total_orders, total_revenue, completed_orders, pending_orders };
   }
 
   static async getSalesInsights(startDate = null, endDate = null, locale = 'en') {
-    let dateCondition = '';
-    const values = [];
-    
+    const { models: { Order: OrderModel } } = orm;
+    let start, end;
     if (startDate && endDate) {
-      dateCondition = 'WHERE DATE(o.created_at) BETWEEN $1 AND $2';
-      values.push(startDate, endDate);
+      start = new Date(startDate + 'T00:00:00.000Z');
+      end = new Date(endDate + 'T23:59:59.999Z');
     } else if (startDate) {
-      dateCondition = 'WHERE DATE(o.created_at) >= $1';
-      values.push(startDate);
+      start = new Date(startDate + 'T00:00:00.000Z');
+      end = new Date();
     } else {
-      // Default to last 30 days
-      dateCondition = 'WHERE o.created_at >= CURRENT_DATE - INTERVAL \'30 days\'';
+      end = new Date();
+      start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     }
 
-    const query = `
-      SELECT 
-        COUNT(*) as total_orders,
-        COALESCE(SUM(o.total), 0) as total_revenue,
-        COALESCE(AVG(o.total), 0) as average_order_value,
-        COUNT(CASE WHEN o.status = 'completed' THEN 1 END) as completed_orders,
-        COUNT(CASE WHEN o.status = 'pending' THEN 1 END) as pending_orders,
-        COUNT(CASE WHEN o.status = 'preparing' THEN 1 END) as preparing_orders,
-        COUNT(CASE WHEN o.status = 'ready' THEN 1 END) as ready_orders,
-        COUNT(CASE WHEN o.status = 'cancelled' THEN 1 END) as cancelled_orders,
-        COALESCE(SUM(CASE WHEN o.status = 'completed' THEN o.total END), 0) as completed_revenue,
-        DATE_TRUNC('day', o.created_at) as order_date,
-        COUNT(*) OVER() as total_period_orders
-      FROM orders o
-      ${dateCondition}
-      GROUP BY DATE_TRUNC('day', o.created_at)
-      ORDER BY order_date DESC
-    `;
-    
-    const result = await executeQuery(query, values);
-    
-    // Calculate summary metrics
-    const summaryQuery = `
-      SELECT 
-        COUNT(*) as total_orders,
-        COALESCE(SUM(o.total), 0) as total_revenue,
-        COALESCE(AVG(o.total), 0) as average_order_value,
-        COUNT(CASE WHEN o.status = 'completed' THEN 1 END) as completed_orders,
-        COUNT(CASE WHEN o.status = 'pending' THEN 1 END) as pending_orders,
-        COUNT(CASE WHEN o.status = 'preparing' THEN 1 END) as preparing_orders,
-        COUNT(CASE WHEN o.status = 'ready' THEN 1 END) as ready_orders,
-        COUNT(CASE WHEN o.status = 'cancelled' THEN 1 END) as cancelled_orders,
-        COALESCE(SUM(CASE WHEN o.status = 'completed' THEN o.total END), 0) as completed_revenue
-      FROM orders o
-      ${dateCondition}
-    `;
-    
-    const summaryResult = await executeQuery(summaryQuery, values);
-    
-    return {
-      summary: summaryResult.rows[0],
-      daily_breakdown: result.rows
-    };
+    const daily = await OrderModel.findAll({
+      attributes: [
+        [fn('DATE_TRUNC', 'day', col('created_at')), 'order_date'],
+        [fn('COUNT', col('id')), 'total_orders'],
+        [fn('COALESCE', fn('SUM', col('total')), 0), 'total_revenue'],
+        [fn('COALESCE', fn('AVG', col('total')), 0), 'average_order_value'],
+        [fn('SUM', literal("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")), 'completed_orders'],
+        [fn('SUM', literal("CASE WHEN status = 'pending' THEN 1 ELSE 0 END")), 'pending_orders'],
+        [fn('SUM', literal("CASE WHEN status = 'preparing' THEN 1 ELSE 0 END")), 'preparing_orders'],
+        [fn('SUM', literal("CASE WHEN status = 'ready' THEN 1 ELSE 0 END")), 'ready_orders'],
+        [fn('SUM', literal("CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END")), 'cancelled_orders'],
+        [fn('COALESCE', fn('SUM', literal("CASE WHEN status = 'completed' THEN total END")), 0), 'completed_revenue'],
+      ],
+      where: { created_at: { [Op.between]: [start, end] } },
+      group: [literal("DATE_TRUNC('day', created_at)")],
+      order: [[literal("DATE_TRUNC('day', created_at)"), 'DESC']],
+      raw: true,
+    });
+
+    const summaryRaw = await OrderModel.findAll({
+      attributes: [
+        [fn('COUNT', col('id')), 'total_orders'],
+        [fn('COALESCE', fn('SUM', col('total')), 0), 'total_revenue'],
+        [fn('COALESCE', fn('AVG', col('total')), 0), 'average_order_value'],
+        [fn('SUM', literal("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")), 'completed_orders'],
+        [fn('SUM', literal("CASE WHEN status = 'pending' THEN 1 ELSE 0 END")), 'pending_orders'],
+        [fn('SUM', literal("CASE WHEN status = 'preparing' THEN 1 ELSE 0 END")), 'preparing_orders'],
+        [fn('SUM', literal("CASE WHEN status = 'ready' THEN 1 ELSE 0 END")), 'ready_orders'],
+        [fn('SUM', literal("CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END")), 'cancelled_orders'],
+        [fn('COALESCE', fn('SUM', literal("CASE WHEN status = 'completed' THEN total END")), 0), 'completed_revenue'],
+      ],
+      where: { created_at: { [Op.between]: [start, end] } },
+      raw: true,
+    });
+    const summary = summaryRaw[0] || {};
+
+    return { summary, daily_breakdown: daily };
   }
 
   static async getTopSellingItems(startDate = null, endDate = null, limit = 10, locale = 'en') {
-    let dateCondition = '';
-    const values = [];
-    
+    const { models: { Order, OrderItem, Menu } } = orm;
+    let start, end;
     if (startDate && endDate) {
-      dateCondition = 'WHERE DATE(o.created_at) BETWEEN $1 AND $2';
-      values.push(startDate, endDate);
+      start = new Date(startDate + 'T00:00:00.000Z');
+      end = new Date(endDate + 'T23:59:59.999Z');
     } else if (startDate) {
-      dateCondition = 'WHERE DATE(o.created_at) >= $1';
-      values.push(startDate);
+      start = new Date(startDate + 'T00:00:00.000Z');
+      end = new Date();
     } else {
-      // Default to last 30 days
-      dateCondition = 'WHERE o.created_at >= CURRENT_DATE - INTERVAL \'30 days\'';
+      end = new Date();
+      start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
     }
-    
-    values.push(limit);
-    const limitIndex = values.length;
 
-    const menuNameField = locale === 'th' ? 'COALESCE(m.name_th, m.name_en)' : 'm.name_en';
-    const categoryField = locale === 'th' ? 'COALESCE(m.category_th, m.category_en)' : 'm.category_en';
-    
-    const query = `
-      SELECT 
-        m.id as menu_id,
-        ${menuNameField} as menu_name,
-        ${categoryField} as category,
-        m.base_price,
-        m.image_url,
-        SUM(oi.quantity) as total_quantity_sold,
-        COUNT(DISTINCT o.id) as number_of_orders,
-        SUM(oi.price * oi.quantity) as total_revenue,
-        AVG(oi.price) as average_price,
-        ROUND((SUM(oi.quantity) * 100.0 / SUM(SUM(oi.quantity)) OVER()), 2) as percentage_of_total_sales
-      FROM order_items oi
-      JOIN orders o ON oi.order_id = o.id
-      JOIN menus m ON oi.menu_id = m.id
-      ${dateCondition}
-      GROUP BY m.id, ${menuNameField}, ${categoryField}, m.base_price, m.image_url
-      ORDER BY total_quantity_sold DESC
-      LIMIT $${limitIndex}
-    `;
-    
-    const result = await executeQuery(query, values);
-    return result.rows;
+    const totalQuantity = await OrderItem.sum('quantity', {
+      include: [{ model: Order, required: true, where: { created_at: { [Op.between]: [start, end] } } }],
+    }) || 0;
+
+    const rows = await OrderItem.findAll({
+      attributes: [
+        'menu_id',
+        [fn('SUM', col('quantity')), 'total_quantity_sold'],
+        [fn('COUNT', fn('DISTINCT', col('order_id'))), 'number_of_orders'],
+        [fn('SUM', literal('price * quantity')), 'total_revenue'],
+        [fn('AVG', col('price')), 'average_price'],
+      ],
+      include: [
+        { model: Order, required: true, where: { created_at: { [Op.between]: [start, end] } } },
+        { model: Menu, as: 'menu', attributes: ['base_price', 'image_url', 'name_en', 'name_th', 'category_en', 'category_th'] }
+      ],
+      group: ['menu_id', 'menu.id', 'menu.base_price', 'menu.image_url', 'menu.name_en', 'menu.name_th', 'menu.category_en', 'menu.category_th'],
+      order: [[fn('SUM', col('quantity')), 'DESC']],
+      limit: Math.min(Math.max(parseInt(limit) || 10, 1), 100),
+      raw: true,
+    });
+
+    return rows.map(r => ({
+      menu_id: r.menu_id,
+      menu_name: locale === 'th' ? (r['menu.name_th'] || r['menu.name_en']) : r['menu.name_en'],
+      category: locale === 'th' ? (r['menu.category_th'] || r['menu.category_en']) : r['menu.category_en'],
+      base_price: parseFloat(r['menu.base_price']),
+      image_url: r['menu.image_url'],
+      total_quantity_sold: parseInt(r.total_quantity_sold, 10),
+      number_of_orders: parseInt(r.number_of_orders, 10),
+      total_revenue: parseFloat(r.total_revenue),
+      average_price: parseFloat(r.average_price),
+      percentage_of_total_sales: totalQuantity ? Math.round((parseInt(r.total_quantity_sold, 10) * 10000) / totalQuantity) / 100 : 0,
+    }));
   }
 
   static addLocalizedFields(order, locale = 'en') {
@@ -367,17 +295,8 @@ class Order {
     // Set localized status directly
     localized.status = localization.getOrderStatusTranslation(order.status, locale);
     
-    // Set localized notes directly
-    if (locale === 'th' && order.notes_th) {
-      localized.notes = order.notes_th;
-    } else if (order.notes) {
-      localized.notes = order.notes;
-    } else {
-      localized.notes = null;
-    }
-    
-    // Remove individual language fields for notes
-    delete localized.notes_th;
+    // Notes: use single 'notes' field (DB does not have notes_th)
+    localized.notes = order.notes || null;
     
     // Localize order items
     if (order.items && Array.isArray(order.items)) {
