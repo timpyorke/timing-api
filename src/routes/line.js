@@ -3,6 +3,7 @@ const line = require('@line/bot-sdk');
 const orm = require('../orm');
 
 const router = express.Router();
+const { LINE_MESSAGES } = require('../utils/constants');
 
 // LINE configuration from environment
 const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -66,10 +67,7 @@ async function handleEvent(event) {
       const profile = await fetchProfile();
       await upsertLineUser(userId, { source: 'follow', profile });
       if (client && event.replyToken) {
-        await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: 'Thanks for following! You will now receive order notifications.'
-        });
+        await client.replyMessage(event.replyToken, { type: 'text', text: LINE_MESSAGES.FOLLOW_THANK_YOU });
       }
       break;
     }
@@ -84,22 +82,16 @@ async function handleEvent(event) {
           const profile = await fetchProfile();
           await upsertLineUser(userId, { source: 'message', profile });
           if (client && event.replyToken) {
-            await client.replyMessage(event.replyToken, {
-              type: 'text',
-              text: 'Registered successfully. You will receive notifications here.'
-            });
+            await client.replyMessage(event.replyToken, { type: 'text', text: LINE_MESSAGES.REGISTER_SUCCESS });
           }
         } else if (text === 'help') {
           if (client && event.replyToken) {
-            await client.replyMessage(event.replyToken, {
-              type: 'text',
-              text: 'Commands: register | help'
-            });
+            await client.replyMessage(event.replyToken, { type: 'text', text: LINE_MESSAGES.HELP_TEXT });
           }
         } else {
           // Optional: echo minimal acknowledgement to avoid unused replies
           if (client && event.replyToken) {
-            await client.replyMessage(event.replyToken, { type: 'text', text: 'OK' });
+            await client.replyMessage(event.replyToken, { type: 'text', text: LINE_MESSAGES.OK_ACK });
           }
         }
       }

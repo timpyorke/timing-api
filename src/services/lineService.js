@@ -1,5 +1,6 @@
 const line = require('@line/bot-sdk');
 const orm = require('../orm');
+const { LINE_MESSAGES } = require('../utils/constants');
 
 // Initialize LINE client using channel access token
 const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -57,13 +58,13 @@ function buildOrderCreatedMessage(order) {
 
   // Items may come localized from Order model
   const items = Array.isArray(order?.items) ? order.items : [];
-  const itemLines = items.map(it => `# ${it.quantity}x ${it.menu_name || it.name || 'Item'}`);
+  const itemLines = items.map(it => `# ${it.quantity}x ${it.menu_name || it.name || LINE_MESSAGES.ITEM_HEADER}`);
 
-  const header = `Order #${orderNumber}`;
-  const atLine = `At  ${timePart}`; // double space as provided in template
-  const divider = '---';
-  const itemHeader = 'Item';
-  const link = `https://timing-backoffice.vercel.app/orders/${orderNumber}`;
+  const header = `${LINE_MESSAGES.ORDER_HEADER_PREFIX}${orderNumber}`;
+  const atLine = `${LINE_MESSAGES.AT_LABEL_PREFIX}${timePart}`; // double space as provided in template
+  const divider = LINE_MESSAGES.DIVIDER;
+  const itemHeader = LINE_MESSAGES.ITEM_HEADER;
+  const link = `${LINE_MESSAGES.BACKOFFICE_ORDER_URL_PREFIX}${orderNumber}`;
 
   const parts = [
     header,

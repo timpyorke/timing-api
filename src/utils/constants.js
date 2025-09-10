@@ -38,5 +38,16 @@ module.exports = {
   ORDER_STATUS,
   NOTIFICATION_TYPES,
   ERROR_MESSAGES,
-  SUCCESS_MESSAGES
+  SUCCESS_MESSAGES,
+  LINE_MESSAGES: {
+    ORDER_HEADER_PREFIX: 'Order #',
+    AT_LABEL_PREFIX: 'At  ', // note: double space intentional
+    DIVIDER: '---',
+    ITEM_HEADER: 'Item',
+    FOLLOW_THANK_YOU: 'Thanks for following! You will now receive order notifications.',
+    REGISTER_SUCCESS: 'Registered successfully. You will receive notifications here.',
+    HELP_TEXT: 'Commands: register | help',
+    OK_ACK: 'OK',
+    BACKOFFICE_ORDER_URL_PREFIX: 'https://timing-backoffice.vercel.app/orders/'
+  }
 };
