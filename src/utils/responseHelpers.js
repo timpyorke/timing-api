@@ -3,14 +3,24 @@ const localization = require('./localization');
 
 // Optional: rewrite image_url fields to use local proxy
 const SHOULD_REWRITE_IMAGES = (process.env.IMAGE_PROXY_REWRITE === 'true' || process.env.IMAGE_PROXY_REWRITE === '1');
+// If set, produce absolute URLs for the proxy so that frontends on other domains
+// don’t 404 when they try to request /img on their own origin.
+// Example: https://api.yourdomain.com
+const PROXY_BASE = ((process.env.PUBLIC_BASE_URL || process.env.IMAGE_PROXY_ORIGIN || '') + '')
+  .trim()
+  .replace(/\/$/, '');
 
 function buildProxiedUrl(url) {
   if (typeof url !== 'string' || url.length === 0) return url;
   // Avoid double-proxying
-  if (url.startsWith('/img?url=')) return url;
+  if (url.startsWith('/img?url=')) {
+    return PROXY_BASE ? `${PROXY_BASE}${url}` : url;
+  }
+  // Only proxy absolute http/https URLs; leave relative or data/blob URLs as-is
   if (!/^https?:\/\//i.test(url)) return url;
   const encoded = encodeURIComponent(url);
-  return `/img?url=${encoded}`;
+  const proxiedPath = `/img?url=${encoded}`;
+  return PROXY_BASE ? `${PROXY_BASE}${proxiedPath}` : proxiedPath;
 }
 
 function rewriteImageUrlsDeep(value, seen = new WeakSet()) {
