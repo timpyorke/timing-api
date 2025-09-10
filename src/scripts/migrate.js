@@ -1,7 +1,15 @@
 #!/usr/bin/env node
-require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const dotenv = require('dotenv');
+// Load .env, and if DATABASE_URL is missing, try .env.development automatically
+dotenv.config();
+if (!process.env.DATABASE_URL) {
+  const devEnvPath = path.join(__dirname, '../../.env.development');
+  if (fs.existsSync(devEnvPath)) {
+    dotenv.config({ path: devEnvPath });
+  }
+}
 const pool = require('../config/database');
 const { LOG_MESSAGES } = require('../utils/constants');
 

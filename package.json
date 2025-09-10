@@ -11,6 +11,7 @@
     "dev:prod": "NODE_ENV=production nodemon -r dotenv/config src/server.js dotenv_config_path=.env.production",
     "init-db": "node scripts/init-db.js",
     "migrate": "node src/scripts/migrate.js",
+    "migrate:dev": "NODE_ENV=development node -r dotenv/config src/scripts/migrate.js dotenv_config_path=.env.development",
     "docs": "echo 'API Documentation available at http://localhost:8000/api-docs'",
     "test": "jest"
   },
