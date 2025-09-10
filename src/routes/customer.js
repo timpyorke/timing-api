@@ -52,13 +52,13 @@ router.get('/menu', asyncHandler(async (req, res) => {
   
   const cachedMenu = cache.get(cacheKey);
   if (cachedMenu) {
-    return sendSuccess(res, cachedMenu);
+    return res.json({ success: true, data: cachedMenu });
   }
 
   const menu = await Menu.getMenuByCategory(locale);
   cache.put(cacheKey, menu, CACHE_TIME_MS);
 
-  sendSuccess(res, menu);
+  res.json({ success: true, data: menu });
 }));
 
 /**
@@ -108,7 +108,7 @@ router.get('/menu/:id', validateId, asyncHandler(async (req, res) => {
     return sendError(res, ERROR_MESSAGES.MENU_ITEM_NOT_FOUND, 404);
   }
 
-  sendSuccess(res, menuItem);
+  res.json({ success: true, data: menuItem });
 }));
 
 /**
