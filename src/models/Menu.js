@@ -1,20 +1,20 @@
 const orm = require('../orm');
 
 class Menu {
-  static async findAll(activeOnly = true, locale = 'en') {
+  static async findAll(activeOnly = true, locale = require('../utils/constants').DEFAULT_LOCALE) {
     const { Menu } = orm.models;
     const where = activeOnly ? { active: true } : {};
     const menus = await Menu.findAll({ where, order: [['category_en', 'ASC'], ['name_en', 'ASC']] });
     return menus.map(m => this.addLocalizedFields(m.get({ plain: true }), locale));
   }
 
-  static async findById(id, locale = 'en') {
+  static async findById(id, locale = require('../utils/constants').DEFAULT_LOCALE) {
     const { Menu } = orm.models;
     const menu = await Menu.findByPk(id);
     return menu ? this.addLocalizedFields(menu.get({ plain: true }), locale) : null;
   }
 
-  static async findByIds(ids, locale = 'en') {
+  static async findByIds(ids, locale = require('../utils/constants').DEFAULT_LOCALE) {
     const { Menu } = orm.models;
     const menus = await Menu.findAll({ where: { id: ids } });
     return menus.map(m => this.addLocalizedFields(m.get({ plain: true }), locale));
@@ -63,7 +63,7 @@ class Menu {
     return existing.get({ plain: true });
   }
 
-  static async getMenuByCategory(locale = 'en') {
+  static async getMenuByCategory(locale = require('../utils/constants').DEFAULT_LOCALE) {
     const { Menu } = orm.models;
     const menus = await Menu.findAll({ where: { active: true } });
     const plain = menus.map(m => m.get({ plain: true }));
@@ -90,7 +90,7 @@ class Menu {
     }));
   }
 
-  static addLocalizedFields(menu, locale = 'en') {
+  static addLocalizedFields(menu, locale = require('../utils/constants').DEFAULT_LOCALE) {
     const localized = { ...menu };
     
     // Set localized values based on the requested locale
@@ -138,7 +138,7 @@ class Menu {
     return localized;
   }
 
-  static getLocalizedCategory(categoryData, locale = 'en') {
+  static getLocalizedCategory(categoryData, locale = require('../utils/constants').DEFAULT_LOCALE) {
     if (locale === 'th' && categoryData.category_th) {
       return categoryData.category_th;
     } else if (locale === 'en' && categoryData.category_en) {

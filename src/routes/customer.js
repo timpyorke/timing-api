@@ -6,7 +6,7 @@ const Order = require('../models/Order');
 const lineService = require('../services/lineService');
 const { validateOrder, validateId } = require('../middleware/validation');
 const { sendSuccess, sendError, handleDatabaseError, asyncHandler } = require('../utils/responseHelpers');
-const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES, DEFAULT_LOCALE } = require('../utils/constants');
 
 const CACHE_KEY = 'full-menu';
 const CACHE_TIME_MS = 5 * 60 * 1000; // 5 minutes
@@ -47,7 +47,7 @@ const CACHE_TIME_MS = 5 * 60 * 1000; // 5 minutes
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/menu', asyncHandler(async (req, res) => {
-  const locale = req.locale || 'en';
+  const locale = req.locale || DEFAULT_LOCALE;
   const cacheKey = `${CACHE_KEY}-${locale}`;
   
   const cachedMenu = cache.get(cacheKey);
@@ -101,7 +101,7 @@ router.get('/menu', asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/menu/:id', validateId, asyncHandler(async (req, res) => {
-  const locale = req.locale || 'en';
+  const locale = req.locale || DEFAULT_LOCALE;
   const menuItem = await Menu.findById(req.params.id, locale);
   
   if (!menuItem || !menuItem.active) {
@@ -259,7 +259,7 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/orders/:id/status', validateId, asyncHandler(async (req, res) => {
-  const locale = req.locale || 'en';
+  const locale = req.locale || DEFAULT_LOCALE;
   const order = await Order.findById(req.params.id, locale);
   
   if (!order) {
@@ -317,7 +317,7 @@ router.get('/orders/:id/status', validateId, asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/orders/customer/:customer_id', asyncHandler(async (req, res) => {
-  const locale = req.locale || 'en';
+  const locale = req.locale || DEFAULT_LOCALE;
   const orders = await Order.findAll({ customer_id: req.params.customer_id }, 'created_at', 'DESC', locale);
   sendSuccess(res, orders);
 }));

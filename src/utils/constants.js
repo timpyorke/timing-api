@@ -39,6 +39,18 @@ module.exports = {
   NOTIFICATION_TYPES,
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
+  // Locale and formatting
+  DEFAULT_LOCALE: 'en',
+  DATE_REGEX_YYYY_MM_DD: /^\d{4}-\d{2}-\d{2}$/,
+  // Time constants
+  DAY_MS: 24 * 60 * 60 * 1000,
+  DEFAULT_ANALYTICS_LOOKBACK_DAYS: 30,
+  // Limits
+  TOP_ITEMS_LIMITS: {
+    DEFAULT: 10,
+    MIN: 1,
+    MAX: 100,
+  },
   LINE_MESSAGES: {
     ORDER_HEADER_PREFIX: 'Order #',
     AT_LABEL_PREFIX: 'At  ', // note: double space intentional

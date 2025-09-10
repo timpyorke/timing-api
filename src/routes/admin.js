@@ -12,7 +12,7 @@ const {
   validateOneSignalPlayerId 
 } = require('../middleware/validation');
 const { sendSuccess, sendError, asyncHandler } = require('../utils/responseHelpers');
-const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES, DEFAULT_LOCALE, DATE_REGEX_YYYY_MM_DD, TOP_ITEMS_LIMITS, DAY_MS, DEFAULT_ANALYTICS_LOOKBACK_DAYS } = require('../utils/constants');
 
 /**
  * @swagger
@@ -274,7 +274,7 @@ router.get('/debug-token', authenticateToken, asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/orders', authenticateToken, asyncHandler(async (req, res) => {
-  const locale = req.locale || 'en';
+  const locale = req.locale || DEFAULT_LOCALE;
   const filters = {};
   
   if (req.query.status) {
@@ -707,7 +707,7 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
  */
 router.get('/menu', authenticateToken, async (req, res) => {
   try {
-    const locale = req.locale || 'en';
+    const locale = req.locale || DEFAULT_LOCALE;
     const menuItems = await Menu.findAll(false, locale); // Include inactive items
     res.json({
       success: true,
@@ -1202,17 +1202,17 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
  */
 router.get('/sales/insights', authenticateToken, async (req, res) => {
   try {
-    const { start_date, end_date, locale = 'en' } = req.query;
+    const { start_date, end_date, locale = DEFAULT_LOCALE } = req.query;
     
     // Validate date format if provided
-    if (start_date && !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
+    if (start_date && !DATE_REGEX_YYYY_MM_DD.test(start_date)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid start_date format. Use YYYY-MM-DD'
       });
     }
     
-    if (end_date && !/^\d{4}-\d{2}-\d{2}$/.test(end_date)) {
+    if (end_date && !DATE_REGEX_YYYY_MM_DD.test(end_date)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid end_date format. Use YYYY-MM-DD'
@@ -1227,7 +1227,7 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
       : 0;
     
     // Determine actual period used
-    const actualStartDate = start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const actualStartDate = start_date || new Date(Date.now() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS).toISOString().split('T')[0];
     const actualEndDate = end_date || new Date().toISOString().split('T')[0];
 
     res.json({
@@ -1370,17 +1370,17 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
  */
 router.get('/sales/top-items', authenticateToken, async (req, res) => {
   try {
-    const { start_date, end_date, limit = 10, locale = 'en' } = req.query;
+    const { start_date, end_date, limit = TOP_ITEMS_LIMITS.DEFAULT, locale = DEFAULT_LOCALE } = req.query;
     
     // Validate date format if provided
-    if (start_date && !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
+    if (start_date && !DATE_REGEX_YYYY_MM_DD.test(start_date)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid start_date format. Use YYYY-MM-DD'
       });
     }
     
-    if (end_date && !/^\d{4}-\d{2}-\d{2}$/.test(end_date)) {
+    if (end_date && !DATE_REGEX_YYYY_MM_DD.test(end_date)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid end_date format. Use YYYY-MM-DD'
@@ -1389,7 +1389,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
     
     // Validate limit
     const limitNum = parseInt(limit);
-    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+    if (isNaN(limitNum) || limitNum < TOP_ITEMS_LIMITS.MIN || limitNum > TOP_ITEMS_LIMITS.MAX) {
       return res.status(400).json({
         success: false,
         error: 'Invalid limit. Must be a number between 1 and 100'
@@ -1399,7 +1399,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
     const topItems = await Order.getTopSellingItems(start_date, end_date, limitNum, locale);
     
     // Determine actual period used
-    const actualStartDate = start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const actualStartDate = start_date || new Date(Date.now() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS).toISOString().split('T')[0];
     const actualEndDate = end_date || new Date().toISOString().split('T')[0];
 
     res.json({

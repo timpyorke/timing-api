@@ -1,4 +1,4 @@
-const { ORDER_STATUS } = require('../utils/constants');
+const { ORDER_STATUS, DEFAULT_LOCALE, DAY_MS, DEFAULT_ANALYTICS_LOOKBACK_DAYS, TOP_ITEMS_LIMITS } = require('../utils/constants');
 const { Op, fn, col, literal } = require('sequelize');
 const orm = require('../orm');
 
@@ -51,7 +51,7 @@ class Order {
         price: oi.price,
       }));
       const shaped = { ...plain, items };
-      return this.addLocalizedFields(shaped, shaped.customer_locale || 'en');
+      return this.addLocalizedFields(shaped, shaped.customer_locale || DEFAULT_LOCALE);
     });
   }
 
@@ -79,7 +79,7 @@ class Order {
       price: oi.price,
     }));
     const shaped = { ...plain, items };
-    const orderLocale = locale || shaped.customer_locale || 'en';
+    const orderLocale = locale || shaped.customer_locale || DEFAULT_LOCALE;
     return this.addLocalizedFields(shaped, orderLocale);
   }
 
@@ -119,7 +119,7 @@ class Order {
         price: oi.price,
       }));
       const shaped = { ...plain, items };
-      const orderLocale = locale || shaped.customer_locale || 'en';
+    const orderLocale = locale || shaped.customer_locale || DEFAULT_LOCALE;
       return this.addLocalizedFields(shaped, orderLocale);
     });
   }
@@ -183,7 +183,7 @@ class Order {
     return { total_orders, total_revenue, completed_orders, pending_orders };
   }
 
-  static async getSalesInsights(startDate = null, endDate = null, locale = 'en') {
+  static async getSalesInsights(startDate = null, endDate = null, locale = DEFAULT_LOCALE) {
     const { models: { Order: OrderModel } } = orm;
     let start, end;
     if (startDate && endDate) {
@@ -194,7 +194,7 @@ class Order {
       end = new Date();
     } else {
       end = new Date();
-      start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+      start = new Date(end.getTime() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS);
     }
 
     const daily = await OrderModel.findAll({
@@ -236,7 +236,7 @@ class Order {
     return { summary, daily_breakdown: daily };
   }
 
-  static async getTopSellingItems(startDate = null, endDate = null, limit = 10, locale = 'en') {
+  static async getTopSellingItems(startDate = null, endDate = null, limit = TOP_ITEMS_LIMITS.DEFAULT, locale = DEFAULT_LOCALE) {
     const { models: { Order, OrderItem, Menu } } = orm;
     let start, end;
     if (startDate && endDate) {
@@ -247,7 +247,7 @@ class Order {
       end = new Date();
     } else {
       end = new Date();
-      start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+      start = new Date(end.getTime() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS);
     }
 
     const totalQuantity = await OrderItem.sum('quantity', {
@@ -296,7 +296,7 @@ class Order {
     }));
   }
 
-  static addLocalizedFields(order, locale = 'en') {
+  static addLocalizedFields(order, locale = DEFAULT_LOCALE) {
     if (!order) return order;
     
     const localization = require('../utils/localization');
