@@ -131,6 +131,29 @@ class Inventory {
     }
     return sequelize.transaction(run);
   }
+
+  // Restore stock for an order (e.g., on cancellation)
+  static async restoreStockForOrder(items, transaction = null) {
+    const { sequelize, models: { MenuIngredient, Ingredient, StockMovement } } = orm;
+    const run = async (t) => {
+      const restoreMap = new Map(); // ingredient_id -> totalQty
+      for (const item of items) {
+        const recipeRows = await MenuIngredient.findAll({ where: { menu_id: item.menu_id }, transaction: t });
+        for (const r of recipeRows) {
+          const addQty = Number(r.quantity_per_unit) * Number(item.quantity);
+          restoreMap.set(r.ingredient_id, Number(restoreMap.get(r.ingredient_id) || 0) + addQty);
+        }
+      }
+      for (const [ingId, qty] of restoreMap.entries()) {
+        const ing = await Ingredient.findByPk(ingId, { transaction: t, lock: t.LOCK.UPDATE });
+        if (!ing) continue;
+        await ing.update({ stock: Number(ing.stock || 0) + Number(qty) }, { transaction: t });
+        await StockMovement.create({ ingredient_id: ingId, change: Number(qty), reason: 'order_cancelled_restore' }, { transaction: t });
+      }
+    };
+    if (transaction) return run(transaction);
+    return sequelize.transaction(run);
+  }
 }
 
 module.exports = Inventory;

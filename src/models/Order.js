@@ -1,11 +1,21 @@
 const { ORDER_STATUS, DEFAULT_LOCALE, DAY_MS, DEFAULT_ANALYTICS_LOOKBACK_DAYS, TOP_ITEMS_LIMITS } = require('../utils/constants');
 const { Op, fn, col, literal } = require('sequelize');
 const orm = require('../orm');
+const Inventory = require('./Inventory');
 
 class Order {
   static async create(orderData) {
     const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
     return await sequelize.transaction(async (t) => {
+      // Deduct inventory for this order within the same transaction
+      try {
+        const itemsForStock = (orderData.items || []).map(i => ({ menu_id: i.menu_id, quantity: Number(i.quantity || 0) }));
+        await Inventory.checkAndDeductStockForOrder(itemsForStock, t);
+      } catch (e) {
+        // Surface clear inventory errors to the caller
+        throw new Error(e?.message || 'Inventory update failed');
+      }
+
       const created = await OrderModel.create({
         customer_id: orderData.customer_id || null,
         customer_info: orderData.customer_info,
@@ -125,10 +135,22 @@ class Order {
   }
 
   static async updateStatus(id, status) {
-    const { models: { Order: OrderModel } } = orm;
-    await OrderModel.update({ status }, { where: { id } });
-    const updated = await OrderModel.findByPk(id);
-    return updated ? updated.get({ plain: true }) : null;
+    const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
+    return await sequelize.transaction(async (t) => {
+      const existing = await OrderModel.findByPk(id, { include: [{ model: OrderItemModel, as: 'items' }], transaction: t, lock: t.LOCK.UPDATE });
+      if (!existing) return null;
+      const fromStatus = existing.status;
+      const toStatus = status;
+
+      // If moving to cancelled from a non-cancelled state, restore stock
+      if (toStatus === ORDER_STATUS.CANCELLED && fromStatus !== ORDER_STATUS.CANCELLED) {
+        const items = (existing.items || []).map(i => ({ menu_id: i.menu_id, quantity: i.quantity }));
+        await Inventory.restoreStockForOrder(items, t);
+      }
+
+      await existing.update({ status: toStatus }, { transaction: t });
+      return existing.get({ plain: true });
+    });
   }
 
   static async update(id, orderData) {
