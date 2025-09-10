@@ -1,114 +1,136 @@
-const { executeQuery } = require('../utils/database');
+const orm = require('../orm');
 
 class Inventory {
   static async upsertIngredient({ name, unit }) {
-    const query = `
-      INSERT INTO ingredients (name, unit)
-      VALUES ($1, $2)
-      ON CONFLICT (name) DO UPDATE SET unit = EXCLUDED.unit, updated_at = CURRENT_TIMESTAMP
-      RETURNING *
-    `;
-    const result = await executeQuery(query, [name, unit]);
-    return result.rows[0];
+    const { Ingredient } = orm.models;
+    // Use upsert for idempotency; returns [instance, created] on Postgres
+    const res = await Ingredient.upsert({ name, unit }, { returning: true });
+    // Sequelize v6 returns [instance, created] in Postgres
+    if (Array.isArray(res) && res[0]) return res[0].get({ plain: true });
+    // Fallback: fetch the row
+    const row = await Ingredient.findOne({ where: { name } });
+    return row.get({ plain: true });
   }
 
   static async setStockByName(name, quantity) {
-    const result = await executeQuery('SELECT * FROM ingredients WHERE name = $1', [name]);
-    if (!result.rows[0]) throw new Error(`Ingredient not found: ${name}`);
-    const ing = result.rows[0];
-    const delta = Number(quantity) - Number(ing.stock);
-    await executeQuery('UPDATE ingredients SET stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [quantity, ing.id]);
-    await executeQuery('INSERT INTO stock_movements (ingredient_id, change, reason) VALUES ($1, $2, $3)', [ing.id, delta, 'set_stock']);
-    return { ...ing, stock: quantity };
+    const { sequelize, models: { Ingredient, StockMovement } } = orm;
+    return await sequelize.transaction(async (t) => {
+      const ing = await Ingredient.findOne({ where: { name }, transaction: t, lock: t.LOCK.UPDATE });
+      if (!ing) throw new Error(`Ingredient not found: ${name}`);
+      const current = Number(ing.stock || 0);
+      const target = Number(quantity);
+      const delta = target - current;
+      await ing.update({ stock: target }, { transaction: t });
+      await StockMovement.create({ ingredient_id: ing.id, change: delta, reason: 'set_stock' }, { transaction: t });
+      return { ...ing.get({ plain: true }), stock: target };
+    });
   }
 
   static async addStockByName(name, quantity, reason = 'add_stock') {
-    const result = await executeQuery('SELECT * FROM ingredients WHERE name = $1', [name]);
-    if (!result.rows[0]) throw new Error(`Ingredient not found: ${name}`);
-    const ing = result.rows[0];
-    const newStock = Number(ing.stock) + Number(quantity);
-    await executeQuery('UPDATE ingredients SET stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [newStock, ing.id]);
-    await executeQuery('INSERT INTO stock_movements (ingredient_id, change, reason) VALUES ($1, $2, $3)', [ing.id, quantity, reason]);
-    return { ...ing, stock: newStock };
+    const { sequelize, models: { Ingredient, StockMovement } } = orm;
+    return await sequelize.transaction(async (t) => {
+      const ing = await Ingredient.findOne({ where: { name }, transaction: t, lock: t.LOCK.UPDATE });
+      if (!ing) throw new Error(`Ingredient not found: ${name}`);
+      const newStock = Number(ing.stock || 0) + Number(quantity);
+      await ing.update({ stock: newStock }, { transaction: t });
+      await StockMovement.create({ ingredient_id: ing.id, change: Number(quantity), reason }, { transaction: t });
+      return { ...ing.get({ plain: true }), stock: newStock };
+    });
   }
 
   static async listIngredients() {
-    const result = await executeQuery('SELECT * FROM ingredients ORDER BY name');
-    return result.rows;
+    const { Ingredient } = orm.models;
+    const rows = await Ingredient.findAll({ order: [['name', 'ASC']] });
+    return rows.map(r => r.get({ plain: true }));
   }
 
   static async setRecipe(menuId, recipe) {
     // recipe: [{ ingredient_name, quantity }, ...]
     // Ensure ingredients exist, then upsert mapping
-    for (const r of recipe) {
-      const name = r.ingredient_name || r.name;
-      const qty = Number(r.quantity);
-      if (!name || !Number.isFinite(qty) || qty <= 0) {
-        throw new Error('Invalid recipe item');
+    const { sequelize, models: { Ingredient, MenuIngredient } } = orm;
+    return await sequelize.transaction(async (t) => {
+      for (const r of recipe) {
+        const name = r.ingredient_name || r.name;
+        const qty = Number(r.quantity);
+        if (!name || !Number.isFinite(qty) || qty <= 0) {
+          throw new Error('Invalid recipe item');
+        }
+        const ing = await Ingredient.findOne({ where: { name }, transaction: t });
+        if (!ing) throw new Error(`Ingredient not found for recipe: ${name}`);
+        await MenuIngredient.upsert({ menu_id: menuId, ingredient_id: ing.id, quantity_per_unit: qty }, { transaction: t });
       }
-      // Create ingredient if not exists? unit must be present initially via upsertIngredient API
-      const ingRes = await executeQuery('SELECT id FROM ingredients WHERE name = $1', [name]);
-      if (!ingRes.rows[0]) {
-        throw new Error(`Ingredient not found for recipe: ${name}`);
-      }
-      const ingId = ingRes.rows[0].id;
-      await executeQuery(`
-        INSERT INTO menu_ingredients (menu_id, ingredient_id, quantity_per_unit)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (menu_id, ingredient_id)
-        DO UPDATE SET quantity_per_unit = EXCLUDED.quantity_per_unit
-      `, [menuId, ingId, qty]);
-    }
-    return true;
+      return true;
+    });
   }
 
   static async getRecipe(menuId) {
-    const result = await executeQuery(`
-      SELECT mi.menu_id, mi.quantity_per_unit, i.id as ingredient_id, i.name, i.unit
-      FROM menu_ingredients mi
-      JOIN ingredients i ON mi.ingredient_id = i.id
-      WHERE mi.menu_id = $1
-    `, [menuId]);
-    return result.rows;
+    const { MenuIngredient, Ingredient } = orm.models;
+    const rows = await MenuIngredient.findAll({
+      where: { menu_id: menuId },
+      include: [{ model: Ingredient, as: 'ingredient', attributes: ['id', 'name', 'unit'] }],
+      order: [[{ model: Ingredient, as: 'ingredient' }, 'name', 'ASC']],
+    });
+    return rows.map(r => {
+      const plain = r.get({ plain: true });
+      return {
+        menu_id: plain.menu_id,
+        quantity_per_unit: Number(plain.quantity_per_unit),
+        ingredient_id: plain.ingredient?.id,
+        name: plain.ingredient?.name,
+        unit: plain.ingredient?.unit,
+      };
+    });
   }
 
-  static async checkAndDeductStockForOrder(client, items) {
+  // New ORM-based stock deduction; accepts an optional Sequelize transaction
+  static async checkAndDeductStockForOrder(arg1, arg2 = null) {
+    // Support both legacy signature (client, items) and new (items, transaction)
+    const items = Array.isArray(arg1) ? arg1 : arg2; // items always array in either form
+    const transaction = Array.isArray(arg1) ? arg2 : null;
+    if (!Array.isArray(items)) throw new Error('items array is required');
     // items: [{ menu_id, quantity }]
-    // 1) Aggregate required ingredients
-    const required = new Map(); // key: ingredient_id, value: { name, unit, requiredQty }
-    for (const item of items) {
-      const res = await client.query(`
-        SELECT i.id, i.name, i.unit, mi.quantity_per_unit
-        FROM menu_ingredients mi
-        JOIN ingredients i ON mi.ingredient_id = i.id
-        WHERE mi.menu_id = $1
-      `, [item.menu_id]);
-      for (const row of res.rows) {
-        const needed = Number(row.quantity_per_unit) * Number(item.quantity);
-        if (!required.has(row.id)) {
-          required.set(row.id, { name: row.name, unit: row.unit, requiredQty: 0 });
+    const { sequelize, models: { MenuIngredient, Ingredient, StockMovement } } = orm;
+    const run = async (t) => {
+      // 1) Aggregate required ingredients
+      const required = new Map(); // key: ingredient_id -> { name, unit, requiredQty }
+      for (const item of items) {
+        const recipeRows = await MenuIngredient.findAll({
+          where: { menu_id: item.menu_id },
+          include: [{ model: Ingredient, as: 'ingredient', attributes: ['id', 'name', 'unit'] }],
+          transaction: t,
+        });
+        for (const r of recipeRows) {
+          const ing = r.ingredient;
+          if (!ing) continue;
+          const needed = Number(r.quantity_per_unit) * Number(item.quantity);
+          if (!required.has(ing.id)) required.set(ing.id, { name: ing.name, unit: ing.unit, requiredQty: 0 });
+          required.get(ing.id).requiredQty += needed;
         }
-        required.get(row.id).requiredQty += needed;
       }
-    }
 
-    // 2) Check stock availability
-    for (const [ingId, info] of required.entries()) {
-      const stockRes = await client.query('SELECT stock FROM ingredients WHERE id = $1 FOR UPDATE', [ingId]);
-      if (!stockRes.rows[0]) throw new Error(`Ingredient missing: ${info.name}`);
-      const current = Number(stockRes.rows[0].stock);
-      if (current < info.requiredQty - 1e-9) {
-        throw new Error(`Insufficient stock for ${info.name}: need ${info.requiredQty} ${info.unit}, have ${current}`);
+      // 2) Check stock availability with row-level locks
+      for (const [ingId, info] of required.entries()) {
+        const ing = await Ingredient.findByPk(ingId, { transaction: t, lock: t.LOCK.UPDATE });
+        if (!ing) throw new Error(`Ingredient missing: ${info.name}`);
+        const current = Number(ing.stock || 0);
+        if (current < info.requiredQty - 1e-9) {
+          throw new Error(`Insufficient stock for ${info.name}: need ${info.requiredQty} ${info.unit}, have ${current}`);
+        }
       }
-    }
 
-    // 3) Deduct stock and record movements
-    for (const [ingId, info] of required.entries()) {
-      await client.query('UPDATE ingredients SET stock = stock - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [info.requiredQty, ingId]);
-      await client.query('INSERT INTO stock_movements (ingredient_id, change, reason) VALUES ($1, $2, $3)', [ingId, -info.requiredQty, 'order_deduction']);
+      // 3) Deduct stock and record movements
+      for (const [ingId, info] of required.entries()) {
+        const ing = await Ingredient.findByPk(ingId, { transaction: t, lock: t.LOCK.UPDATE });
+        await ing.update({ stock: Number(ing.stock || 0) - Number(info.requiredQty) }, { transaction: t });
+        await StockMovement.create({ ingredient_id: ingId, change: -Number(info.requiredQty), reason: 'order_deduction' }, { transaction: t });
+      }
+    };
+
+    if (transaction) {
+      return run(transaction);
     }
+    return sequelize.transaction(run);
   }
 }
 
 module.exports = Inventory;
-
