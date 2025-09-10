@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { LOG_MESSAGES } = require('../utils/constants');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -18,13 +19,11 @@ const pool = new Pool({
 // Connection event handlers
 pool.on('connect', (client) => {
   if (process.env.NODE_ENV !== 'test') {
-  const { LOG_MESSAGES } = require('../utils/constants');
-  console.log(LOG_MESSAGES.DB_CONNECTED);
+    console.log(LOG_MESSAGES.DB_CONNECTED);
   }
 });
 
 pool.on('error', (err, client) => {
-  const { LOG_MESSAGES } = require('../utils/constants');
   console.error(LOG_MESSAGES.DB_CONNECTION_ERROR_PREFIX, err);
 });
 
@@ -38,10 +37,8 @@ pool.on('release', (client) => {
 
 // Graceful pool shutdown
 const gracefulShutdown = async () => {
-  const { LOG_MESSAGES } = require('../utils/constants');
   console.log(LOG_MESSAGES.DB_POOL_SHUTTING_DOWN);
   await pool.end();
-  const { LOG_MESSAGES } = require('../utils/constants');
   console.log(LOG_MESSAGES.DB_POOL_CLOSED);
 };
 
