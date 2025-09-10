@@ -251,7 +251,12 @@ class Order {
     }
 
     const totalQuantity = await OrderItem.sum('quantity', {
-      include: [{ model: Order, required: true, where: { created_at: { [Op.between]: [start, end] } } }],
+      include: [{
+        model: Order,
+        required: true,
+        attributes: [], // prevent selecting order.* to avoid GROUP BY issues in aggregates
+        where: { created_at: { [Op.between]: [start, end] } },
+      }],
     }) || 0;
 
     const rows = await OrderItem.findAll({
@@ -263,7 +268,12 @@ class Order {
         [fn('AVG', col('price')), 'average_price'],
       ],
       include: [
-        { model: Order, required: true, where: { created_at: { [Op.between]: [start, end] } } },
+        {
+          model: Order,
+          required: true,
+          attributes: [], // do not select order columns when aggregating
+          where: { created_at: { [Op.between]: [start, end] } },
+        },
         { model: Menu, as: 'menu', attributes: ['base_price', 'image_url', 'name_en', 'name_th', 'category_en', 'category_th'] }
       ],
       group: ['menu_id', 'menu.id', 'menu.base_price', 'menu.image_url', 'menu.name_en', 'menu.name_th', 'menu.category_en', 'menu.category_th'],
