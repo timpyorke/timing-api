@@ -6,7 +6,7 @@ const Order = require('../models/Order');
 const lineService = require('../services/lineService');
 const { validateOrder, validateId } = require('../middleware/validation');
 const { sendSuccess, sendError, handleDatabaseError, asyncHandler } = require('../utils/responseHelpers');
-const { ERROR_MESSAGES, SUCCESS_MESSAGES, DEFAULT_LOCALE } = require('../utils/constants');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES, DEFAULT_LOCALE, LOG_MESSAGES } = require('../utils/constants');
 
 const CACHE_KEY = 'full-menu';
 const CACHE_TIME_MS = 5 * 60 * 1000; // 5 minutes
@@ -204,16 +204,16 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
 
   // Validate that order was created successfully
   if (!order || !order.id) {
-    console.error('Order creation failed - no order returned or missing id');
+    console.error(LOG_MESSAGES.ORDER_CREATION_FAILED_NO_ID);
     return sendError(res, 'Failed to create order', 500);
   }
 
   // Send LINE notification (fire-and-forget)
   try {
     lineService.sendOrderCreatedNotification(order)
-      .catch(err => console.warn('LINE notify (customer create) failed:', err?.message || err));
+      .catch(err => console.warn(LOG_MESSAGES.CUSTOMER_LINE_NOTIFY_FAILED_PREFIX, err?.message || err));
   } catch (e) {
-    console.warn('LINE notify (customer create) setup error:', e?.message || e);
+    console.warn(LOG_MESSAGES.CUSTOMER_LINE_NOTIFY_SETUP_ERROR_PREFIX, e?.message || e);
   }
 
   sendSuccess(res, order, SUCCESS_MESSAGES.ORDER_CREATED, 201);

@@ -11,7 +11,8 @@ const executeQuery = async (query, params = []) => {
     const result = await pool.query(query, params);
     return result;
   } catch (error) {
-    console.error('Database query error:', {
+    const { LOG_MESSAGES } = require('./constants');
+    console.error(LOG_MESSAGES.UTILS_DB_QUERY_ERROR_PREFIX, {
       error: error.message,
       query: query.substring(0, 100) + '...',
       params: params
@@ -34,7 +35,8 @@ const executeTransaction = async (callback) => {
     return result;
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Transaction error:', error);
+    const { LOG_MESSAGES } = require('./constants');
+    console.error(LOG_MESSAGES.UTILS_TRANSACTION_ERROR_PREFIX, error);
     throw error;
   } finally {
     client.release();

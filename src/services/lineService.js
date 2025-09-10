@@ -1,6 +1,6 @@
 const line = require('@line/bot-sdk');
 const orm = require('../orm');
-const { LINE_MESSAGES } = require('../utils/constants');
+const { LINE_MESSAGES, LOG_MESSAGES } = require('../utils/constants');
 
 // Initialize LINE client using channel access token
 const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -9,7 +9,7 @@ let lineClient = null;
 if (channelAccessToken) {
   lineClient = new line.Client({ channelAccessToken });
 } else {
-  console.warn('LINE_CHANNEL_ACCESS_TOKEN is not set. LINE notifications are disabled.');
+  console.warn(LOG_MESSAGES.LINE_TOKEN_MISSING_WARN);
 }
 
 // Helper to fetch all registered LINE user IDs from DB
@@ -17,7 +17,7 @@ async function getAllLineUserIds() {
   try {
     const { LineToken } = orm.models;
     if (!LineToken) {
-      console.error('ORM model LineToken not initialized');
+      console.error(LOG_MESSAGES.ORM_LINE_TOKEN_NOT_INITIALIZED);
       return [];
     }
     const rows = await LineToken.findAll({ attributes: ['line_user_id'], raw: true });
@@ -25,7 +25,7 @@ async function getAllLineUserIds() {
     // Deduplicate
     return Array.from(new Set(ids));
   } catch (err) {
-    console.error('Failed to fetch LINE user IDs (ORM):', err.message);
+    console.error(LOG_MESSAGES.FETCH_LINE_IDS_FAILED_PREFIX, err.message);
     return [];
   }
 }
@@ -87,11 +87,11 @@ function buildOrderCreatedMessage(order) {
 async function pushToAll(message) {
   const ids = await getAllLineUserIds();
   if (!ids.length) {
-    console.warn('No LINE user IDs found; skipping LINE notification');
+    console.warn(LOG_MESSAGES.LINE_NO_RECIPIENTS_WARN);
     return { sent: 0, recipients: [] };
   }
   if (!lineClient) {
-    console.warn('LINE client is not initialized; skipping LINE notification');
+    console.warn(LOG_MESSAGES.LINE_CLIENT_NOT_INIT_WARN);
     return { sent: 0, recipients: [] };
   }
 
@@ -103,7 +103,7 @@ async function pushToAll(message) {
   const success = results.filter(r => r.status === 'fulfilled').length;
   const failed = results.length - success;
   if (failed) {
-    console.warn(`LINE notifications: ${success} sent, ${failed} failed`);
+    console.warn(`${LOG_MESSAGES.LINE_NOTIFY_SUMMARY_PREFIX} ${success} sent, ${failed} failed`);
   }
   return { sent: success, recipients: ids };
 }
@@ -113,7 +113,7 @@ async function sendOrderCreatedNotification(order) {
     const message = buildOrderCreatedMessage(order);
     return await pushToAll(message);
   } catch (err) {
-    console.error('Failed to send LINE order created notification:', err.message);
+    console.error(LOG_MESSAGES.LINE_ORDER_NOTIFY_FAILED_PREFIX, err.message);
     return { sent: 0, recipients: [] };
   }
 }

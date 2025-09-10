@@ -43,8 +43,9 @@ app.use('/api/admin', require('./routes/admin'));
 // LINE webhook mounted above body parsers
 
 // Ensure DB schema pieces exist (e.g., line_tokens)
+const { LOG_MESSAGES } = require('./utils/constants');
 require('./models/init')().catch(err => {
-  console.error('Database initialization error:', err?.message || err);
+  console.error(LOG_MESSAGES.DB_INIT_ERROR_PREFIX, err?.message || err);
 });
 
 /**
@@ -90,7 +91,7 @@ app.use((err, req, res, next) => {
 // Only start server if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`${LOG_MESSAGES.SERVER_RUNNING_PREFIX} ${PORT}`);
   });
 }
 

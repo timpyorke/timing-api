@@ -18,12 +18,14 @@ const pool = new Pool({
 // Connection event handlers
 pool.on('connect', (client) => {
   if (process.env.NODE_ENV !== 'test') {
-    console.log('Connected to PostgreSQL database');
+  const { LOG_MESSAGES } = require('../utils/constants');
+  console.log(LOG_MESSAGES.DB_CONNECTED);
   }
 });
 
 pool.on('error', (err, client) => {
-  console.error('Database connection error:', err);
+  const { LOG_MESSAGES } = require('../utils/constants');
+  console.error(LOG_MESSAGES.DB_CONNECTION_ERROR_PREFIX, err);
 });
 
 pool.on('acquire', (client) => {
@@ -36,9 +38,11 @@ pool.on('release', (client) => {
 
 // Graceful pool shutdown
 const gracefulShutdown = async () => {
-  console.log('Shutting down database pool...');
+  const { LOG_MESSAGES } = require('../utils/constants');
+  console.log(LOG_MESSAGES.DB_POOL_SHUTTING_DOWN);
   await pool.end();
-  console.log('Database pool closed');
+  const { LOG_MESSAGES } = require('../utils/constants');
+  console.log(LOG_MESSAGES.DB_POOL_CLOSED);
 };
 
 process.on('SIGTERM', gracefulShutdown);

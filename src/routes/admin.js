@@ -12,7 +12,7 @@ const {
   validateOneSignalPlayerId 
 } = require('../middleware/validation');
 const { sendSuccess, sendError, asyncHandler } = require('../utils/responseHelpers');
-const { ERROR_MESSAGES, SUCCESS_MESSAGES, DEFAULT_LOCALE, DATE_REGEX_YYYY_MM_DD, TOP_ITEMS_LIMITS, DAY_MS, DEFAULT_ANALYTICS_LOOKBACK_DAYS } = require('../utils/constants');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES, DEFAULT_LOCALE, DATE_REGEX_YYYY_MM_DD, TOP_ITEMS_LIMITS, DAY_MS, DEFAULT_ANALYTICS_LOOKBACK_DAYS, LOG_MESSAGES } = require('../utils/constants');
 
 /**
  * @swagger
@@ -390,9 +390,9 @@ router.post('/orders', authenticateToken, async (req, res) => {
     // Fire-and-forget LINE notification (do not block response)
     try {
       lineService.sendOrderCreatedNotification(order)
-        .catch(err => console.warn('LINE notify (admin create) failed:', err?.message || err));
+        .catch(err => console.warn(LOG_MESSAGES.ADMIN_LINE_NOTIFY_FAILED_PREFIX, err?.message || err));
     } catch (e) {
-      console.warn('LINE notify (admin create) setup error:', e?.message || e);
+      console.warn(LOG_MESSAGES.ADMIN_LINE_NOTIFY_SETUP_ERROR_PREFIX, e?.message || e);
     }
 
     res.status(201).json({
@@ -401,7 +401,7 @@ router.post('/orders', authenticateToken, async (req, res) => {
       message: 'Order created successfully'
     });
   } catch (error) {
-    console.error('Error creating order:', error);
+    console.error(LOG_MESSAGES.ERROR_CREATING_ORDER_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to create order'
@@ -467,7 +467,7 @@ router.get('/orders/:id', authenticateToken, validateId, async (req, res) => {
       data: order
     });
   } catch (error) {
-    console.error('Error fetching order:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_ORDER_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch order'
@@ -561,7 +561,7 @@ router.put('/orders/:id', authenticateToken, validateId, async (req, res) => {
       message: 'Order updated successfully'
     });
   } catch (error) {
-    console.error('Error updating order:', error);
+    console.error(LOG_MESSAGES.ERROR_UPDATING_ORDER_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to update order'
@@ -633,7 +633,7 @@ router.delete('/orders/:id', authenticateToken, validateId, async (req, res) => 
       message: 'Order deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting order:', error);
+    console.error(LOG_MESSAGES.ERROR_DELETING_ORDER_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete order'
@@ -666,7 +666,7 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
       message: 'Order status updated successfully'
     });
   } catch (error) {
-    console.error('Error updating order status:', error);
+    console.error(LOG_MESSAGES.ERROR_UPDATING_ORDER_STATUS_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to update order status'
@@ -714,7 +714,7 @@ router.get('/menu', authenticateToken, async (req, res) => {
       data: menuItems
     });
   } catch (error) {
-    console.error('Error fetching admin menu:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_ADMIN_MENU_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch menu'
@@ -780,7 +780,7 @@ router.get('/menu/:id', authenticateToken, validateId, async (req, res) => {
       data: menuItem
     });
   } catch (error) {
-    console.error('Error fetching menu item:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_MENU_ITEM_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch menu item'
@@ -859,7 +859,7 @@ router.post('/menu', authenticateToken, validateMenu, async (req, res) => {
       message: 'Menu item created successfully'
     });
   } catch (error) {
-    console.error('Error creating menu item:', error);
+    console.error(LOG_MESSAGES.ERROR_CREATING_MENU_ITEM_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to create menu item'
@@ -962,7 +962,7 @@ router.put('/menu/:id', authenticateToken, validateId, validateMenu, async (req,
       message: 'Menu item updated successfully'
     });
   } catch (error) {
-    console.error('Error updating menu item:', error);
+    console.error(LOG_MESSAGES.ERROR_UPDATING_MENU_ITEM_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to update menu item'
@@ -1040,7 +1040,7 @@ router.delete('/menu/:id', authenticateToken, validateId, async (req, res) => {
       message: 'Menu item deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting menu item:', error);
+    console.error(LOG_MESSAGES.ERROR_DELETING_MENU_ITEM_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete menu item'
@@ -1095,7 +1095,7 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching daily sales:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_DAILY_SALES_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch sales data'
@@ -1259,7 +1259,7 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching sales insights:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_SALES_INSIGHTS_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch sales insights'
@@ -1421,7 +1421,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
       count: topItems.length
     });
   } catch (error) {
-    console.error('Error fetching top selling items:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_TOP_ITEMS_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch top selling items'

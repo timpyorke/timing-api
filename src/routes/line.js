@@ -3,7 +3,7 @@ const line = require('@line/bot-sdk');
 const orm = require('../orm');
 
 const router = express.Router();
-const { LINE_MESSAGES } = require('../utils/constants');
+const { LINE_MESSAGES, LOG_MESSAGES } = require('../utils/constants');
 
 // LINE configuration from environment
 const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -17,7 +17,7 @@ let client = null;
 if (channelAccessToken) {
   client = new line.Client({ channelAccessToken });
 } else {
-  console.warn('LINE webhook: LINE_CHANNEL_ACCESS_TOKEN is not set. Replies disabled.');
+  console.warn(LOG_MESSAGES.LINE_WEBHOOK_TOKEN_MISSING_WARN);
 }
 
 // Helper: upsert LINE user id into DB with optional profile info
@@ -32,7 +32,7 @@ async function upsertLineUser(lineUserId, userInfo = {}) {
     });
     return record;
   } catch (err) {
-    console.error('LINE webhook: failed to upsert line_user_id', { lineUserId, error: err.message });
+    console.error(LOG_MESSAGES.LINE_WEBHOOK_UPSERT_FAILED_PREFIX, { lineUserId, error: err.message });
     throw err;
   }
 }
@@ -43,7 +43,7 @@ async function removeLineUser(lineUserId) {
     const { LineToken } = orm.models;
     await LineToken.destroy({ where: { line_user_id: lineUserId } });
   } catch (err) {
-    console.error('LINE webhook: failed to remove line_user_id', { lineUserId, error: err.message });
+    console.error(LOG_MESSAGES.LINE_WEBHOOK_REMOVE_FAILED_PREFIX, { lineUserId, error: err.message });
   }
 }
 
@@ -112,13 +112,13 @@ if (hasConfig) {
       await Promise.all(events.map(ev => handleEvent(ev)));
       res.status(200).end();
     } catch (err) {
-      console.error('LINE webhook: handler error', err);
+      console.error(LOG_MESSAGES.LINE_WEBHOOK_HANDLER_ERROR_PREFIX, err);
       // Return 200 to prevent LINE retries in case of non-transient errors
       res.status(200).end();
     }
   });
 } else {
-  console.warn('LINE webhook: missing LINE_CHANNEL_ACCESS_TOKEN or LINE_CHANNEL_SECRET. Webhook will accept but do nothing.');
+  console.warn(LOG_MESSAGES.LINE_WEBHOOK_CONFIG_MISSING_WARN);
   // Fallback route keeps endpoint alive but does not process events
   router.post('/webhook', (req, res) => res.status(200).end());
 }
