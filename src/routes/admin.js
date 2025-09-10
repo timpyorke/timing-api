@@ -13,7 +13,7 @@ const {
   validateOneSignalPlayerId 
 } = require('../middleware/validation');
 const { sendSuccess, sendError, asyncHandler } = require('../utils/responseHelpers');
-const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../utils/constants');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES, DEFAULT_LOCALE, DATE_REGEX_YYYY_MM_DD, TOP_ITEMS_LIMITS, DAY_MS, DEFAULT_ANALYTICS_LOOKBACK_DAYS, LOG_MESSAGES } = require('../utils/constants');
 
 /**
  * @swagger
@@ -275,7 +275,7 @@ router.get('/debug-token', authenticateToken, asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.get('/orders', authenticateToken, asyncHandler(async (req, res) => {
-  const locale = req.locale || 'en';
+  const locale = req.locale || DEFAULT_LOCALE;
   const filters = {};
   
   if (req.query.status) {
@@ -391,9 +391,9 @@ router.post('/orders', authenticateToken, async (req, res) => {
     // Fire-and-forget LINE notification (do not block response)
     try {
       lineService.sendOrderCreatedNotification(order)
-        .catch(err => console.warn('LINE notify (admin create) failed:', err?.message || err));
+        .catch(err => console.warn(LOG_MESSAGES.ADMIN_LINE_NOTIFY_FAILED_PREFIX, err?.message || err));
     } catch (e) {
-      console.warn('LINE notify (admin create) setup error:', e?.message || e);
+      console.warn(LOG_MESSAGES.ADMIN_LINE_NOTIFY_SETUP_ERROR_PREFIX, e?.message || e);
     }
 
     res.status(201).json({
@@ -402,12 +402,11 @@ router.post('/orders', authenticateToken, async (req, res) => {
       message: 'Order created successfully'
     });
   } catch (error) {
-    console.error('Error creating order:', error);
-    const msg = (error && error.message) || '';
-    if (msg.includes('Insufficient stock') || msg.includes('Ingredient')) {
-      return res.status(400).json({ success: false, error: msg });
-    }
-    res.status(500).json({ success: false, error: 'Failed to create order' });
+    console.error(LOG_MESSAGES.ERROR_CREATING_ORDER_PREFIX, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create order'
+    });
   }
 });
 
@@ -469,7 +468,7 @@ router.get('/orders/:id', authenticateToken, validateId, async (req, res) => {
       data: order
     });
   } catch (error) {
-    console.error('Error fetching order:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_ORDER_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch order'
@@ -563,7 +562,7 @@ router.put('/orders/:id', authenticateToken, validateId, async (req, res) => {
       message: 'Order updated successfully'
     });
   } catch (error) {
-    console.error('Error updating order:', error);
+    console.error(LOG_MESSAGES.ERROR_UPDATING_ORDER_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to update order'
@@ -635,7 +634,7 @@ router.delete('/orders/:id', authenticateToken, validateId, async (req, res) => 
       message: 'Order deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting order:', error);
+    console.error(LOG_MESSAGES.ERROR_DELETING_ORDER_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete order'
@@ -668,7 +667,7 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
       message: 'Order status updated successfully'
     });
   } catch (error) {
-    console.error('Error updating order status:', error);
+    console.error(LOG_MESSAGES.ERROR_UPDATING_ORDER_STATUS_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to update order status'
@@ -709,14 +708,14 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
  */
 router.get('/menu', authenticateToken, async (req, res) => {
   try {
-    const locale = req.locale || 'en';
+    const locale = req.locale || DEFAULT_LOCALE;
     const menuItems = await Menu.findAll(false, locale); // Include inactive items
     res.json({
       success: true,
       data: menuItems
     });
   } catch (error) {
-    console.error('Error fetching admin menu:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_ADMIN_MENU_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch menu'
@@ -782,7 +781,7 @@ router.get('/menu/:id', authenticateToken, validateId, async (req, res) => {
       data: menuItem
     });
   } catch (error) {
-    console.error('Error fetching menu item:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_MENU_ITEM_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch menu item'
@@ -861,7 +860,7 @@ router.post('/menu', authenticateToken, validateMenu, async (req, res) => {
       message: 'Menu item created successfully'
     });
   } catch (error) {
-    console.error('Error creating menu item:', error);
+    console.error(LOG_MESSAGES.ERROR_CREATING_MENU_ITEM_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to create menu item'
@@ -964,7 +963,7 @@ router.put('/menu/:id', authenticateToken, validateId, validateMenu, async (req,
       message: 'Menu item updated successfully'
     });
   } catch (error) {
-    console.error('Error updating menu item:', error);
+    console.error(LOG_MESSAGES.ERROR_UPDATING_MENU_ITEM_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to update menu item'
@@ -1042,7 +1041,7 @@ router.delete('/menu/:id', authenticateToken, validateId, async (req, res) => {
       message: 'Menu item deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting menu item:', error);
+    console.error(LOG_MESSAGES.ERROR_DELETING_MENU_ITEM_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete menu item'
@@ -1097,7 +1096,7 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching daily sales:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_DAILY_SALES_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch sales data'
@@ -1204,17 +1203,17 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
  */
 router.get('/sales/insights', authenticateToken, async (req, res) => {
   try {
-    const { start_date, end_date, locale = 'en' } = req.query;
+    const { start_date, end_date, locale = DEFAULT_LOCALE } = req.query;
     
     // Validate date format if provided
-    if (start_date && !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
+    if (start_date && !DATE_REGEX_YYYY_MM_DD.test(start_date)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid start_date format. Use YYYY-MM-DD'
       });
     }
     
-    if (end_date && !/^\d{4}-\d{2}-\d{2}$/.test(end_date)) {
+    if (end_date && !DATE_REGEX_YYYY_MM_DD.test(end_date)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid end_date format. Use YYYY-MM-DD'
@@ -1229,7 +1228,7 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
       : 0;
     
     // Determine actual period used
-    const actualStartDate = start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const actualStartDate = start_date || new Date(Date.now() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS).toISOString().split('T')[0];
     const actualEndDate = end_date || new Date().toISOString().split('T')[0];
 
     res.json({
@@ -1261,7 +1260,7 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching sales insights:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_SALES_INSIGHTS_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch sales insights'
@@ -1372,17 +1371,17 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
  */
 router.get('/sales/top-items', authenticateToken, async (req, res) => {
   try {
-    const { start_date, end_date, limit = 10, locale = 'en' } = req.query;
+    const { start_date, end_date, limit = TOP_ITEMS_LIMITS.DEFAULT, locale = DEFAULT_LOCALE } = req.query;
     
     // Validate date format if provided
-    if (start_date && !/^\d{4}-\d{2}-\d{2}$/.test(start_date)) {
+    if (start_date && !DATE_REGEX_YYYY_MM_DD.test(start_date)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid start_date format. Use YYYY-MM-DD'
       });
     }
     
-    if (end_date && !/^\d{4}-\d{2}-\d{2}$/.test(end_date)) {
+    if (end_date && !DATE_REGEX_YYYY_MM_DD.test(end_date)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid end_date format. Use YYYY-MM-DD'
@@ -1391,7 +1390,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
     
     // Validate limit
     const limitNum = parseInt(limit);
-    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+    if (isNaN(limitNum) || limitNum < TOP_ITEMS_LIMITS.MIN || limitNum > TOP_ITEMS_LIMITS.MAX) {
       return res.status(400).json({
         success: false,
         error: 'Invalid limit. Must be a number between 1 and 100'
@@ -1401,7 +1400,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
     const topItems = await Order.getTopSellingItems(start_date, end_date, limitNum, locale);
     
     // Determine actual period used
-    const actualStartDate = start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const actualStartDate = start_date || new Date(Date.now() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS).toISOString().split('T')[0];
     const actualEndDate = end_date || new Date().toISOString().split('T')[0];
 
     res.json({
@@ -1423,7 +1422,7 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
       count: topItems.length
     });
   } catch (error) {
-    console.error('Error fetching top selling items:', error);
+    console.error(LOG_MESSAGES.ERROR_FETCHING_TOP_ITEMS_PREFIX, error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch top selling items'

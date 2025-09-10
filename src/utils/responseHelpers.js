@@ -1,6 +1,39 @@
 const { ERROR_MESSAGES } = require('./constants');
 const localization = require('./localization');
 
+// Optional: rewrite image_url fields to use local proxy
+const SHOULD_REWRITE_IMAGES = (process.env.IMAGE_PROXY_REWRITE === 'true' || process.env.IMAGE_PROXY_REWRITE === '1');
+
+function buildProxiedUrl(url) {
+  if (typeof url !== 'string' || url.length === 0) return url;
+  // Avoid double-proxying
+  if (url.startsWith('/img?url=')) return url;
+  if (!/^https?:\/\//i.test(url)) return url;
+  const encoded = encodeURIComponent(url);
+  return `/img?url=${encoded}`;
+}
+
+function rewriteImageUrlsDeep(value, seen = new WeakSet()) {
+  if (Array.isArray(value)) {
+    return value.map(v => rewriteImageUrlsDeep(v, seen));
+  }
+  if (value && typeof value === 'object') {
+    // Prevent cycles
+    if (seen.has(value)) return value;
+    seen.add(value);
+    const out = Array.isArray(value) ? [] : {};
+    for (const key of Object.keys(value)) {
+      if (key === 'image_url') {
+        out[key] = buildProxiedUrl(value[key]);
+      } else {
+        out[key] = rewriteImageUrlsDeep(value[key], seen);
+      }
+    }
+    return out;
+  }
+  return value;
+}
+
 /**
  * Standard success response structure
  * @param {Object} res - Express response object
@@ -12,9 +45,10 @@ const localization = require('./localization');
 const sendSuccess = (res, data, messageKey = null, statusCode = 200, messageParams = {}) => {
   const req = res.req;
   const locale = req ? localization.getLocaleFromRequest(req) : 'en';
+  const payload = SHOULD_REWRITE_IMAGES ? rewriteImageUrlsDeep(data) : data;
   const response = {
     success: true,
-    data
+    data: payload
   };
   
   if (messageKey) {
@@ -63,7 +97,8 @@ const sendValidationError = (res, errors) => {
  * @param {string} operation - Operation that failed
  */
 const handleDatabaseError = (res, error, operation = 'Database operation') => {
-  console.error(`${operation} failed:`, error);
+  const { LOG_MESSAGES } = require('./constants');
+  console.error(`${operation} ${LOG_MESSAGES.RESPONSE_OPERATION_FAILED_SUFFIX}`, error);
   return sendError(res, ERROR_MESSAGES.SERVER_ERROR, 500);
 };
 

@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const { LOG_MESSAGES } = require('../utils/constants');
 require('dotenv').config();
 
 let messaging = null;
@@ -6,7 +7,7 @@ let messaging = null;
 try {
   // Check if Firebase credentials are properly configured
   if (!process.env.FIREBASE_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY === 'PLACEHOLDER_KEY_NOT_SET') {
-    console.warn('⚠️  Firebase credentials not configured. Push notifications will be disabled.');
+    console.warn(LOG_MESSAGES.FIREBASE_NOT_CONFIGURED_WARN);
     module.exports = { admin: null, messaging: null };
   } else {
     // Initialize Firebase Admin SDK
@@ -31,11 +32,11 @@ try {
     }
 
     messaging = admin.messaging();
-    console.log('✅ Firebase Admin SDK initialized successfully');
+    console.log(LOG_MESSAGES.FIREBASE_INIT_SUCCESS);
     module.exports = { admin, messaging };
   }
 } catch (error) {
-  console.error('❌ Failed to initialize Firebase:', error.message);
-  console.warn('⚠️  Firebase will be disabled. Push notifications will not work.');
+  console.error(LOG_MESSAGES.FIREBASE_INIT_FAILED_PREFIX, error.message);
+  console.warn(LOG_MESSAGES.FIREBASE_DISABLED_WARN);
   module.exports = { admin: null, messaging: null };
 }

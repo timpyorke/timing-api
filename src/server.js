@@ -31,8 +31,17 @@ app.use(express.urlencoded({ extended: true }));
 // Locale middleware
 app.use(require('./middleware/locale'));
 
-// Serve static files
-app.use(express.static('public'));
+// Serve static files with caching for images
+app.use(express.static('public', {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    if (/\.(?:png|jpe?g|gif|webp|svg)$/i.test(filePath)) {
+      // 7 days for images; adjust if filenames are content-hashed
+      res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=59');
+    }
+  }
+}));
 
 // Swagger documentation
 app.use('/api-docs', swagger.serve, swagger.setup);
@@ -40,11 +49,14 @@ app.use('/api-docs', swagger.serve, swagger.setup);
 // Routes
 app.use('/api', require('./routes/customer'));
 app.use('/api/admin', require('./routes/admin'));
+// Lightweight image proxy with in-memory cache (optional; see .env.example)
+app.use('/img', require('./routes/imageProxy'));
 // LINE webhook mounted above body parsers
 
 // Ensure DB schema pieces exist (e.g., line_tokens)
+const { LOG_MESSAGES } = require('./utils/constants');
 require('./models/init')().catch(err => {
-  console.error('Database initialization error:', err?.message || err);
+  console.error(LOG_MESSAGES.DB_INIT_ERROR_PREFIX, err?.message || err);
 });
 
 /**
@@ -90,7 +102,7 @@ app.use((err, req, res, next) => {
 // Only start server if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`${LOG_MESSAGES.SERVER_RUNNING_PREFIX} ${PORT}`);
   });
 }
 

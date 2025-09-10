@@ -1,137 +1,96 @@
-const { executeQuery } = require('../utils/database');
+const orm = require('../orm');
 
 class Menu {
-  static async findAll(activeOnly = true, locale = 'en') {
-    const query = activeOnly 
-      ? 'SELECT * FROM menus WHERE active = true ORDER BY category_en, name_en'
-      : 'SELECT * FROM menus ORDER BY category_en, name_en';
-    const result = await executeQuery(query);
-    
-    // Add localized fields to each menu item
-    return result.rows.map(menu => this.addLocalizedFields(menu, locale));
+  static async findAll(activeOnly = true, locale = require('../utils/constants').DEFAULT_LOCALE) {
+    const { Menu } = orm.models;
+    const where = activeOnly ? { active: true } : {};
+    const menus = await Menu.findAll({ where, order: [['category_en', 'ASC'], ['name_en', 'ASC']] });
+    return menus.map(m => this.addLocalizedFields(m.get({ plain: true }), locale));
   }
 
-  static async findById(id, locale = 'en') {
-    const query = 'SELECT * FROM menus WHERE id = $1';
-    const result = await executeQuery(query, [id]);
-    
-    if (result.rows[0]) {
-      return this.addLocalizedFields(result.rows[0], locale);
-    }
-    return result.rows[0];
+  static async findById(id, locale = require('../utils/constants').DEFAULT_LOCALE) {
+    const { Menu } = orm.models;
+    const menu = await Menu.findByPk(id);
+    return menu ? this.addLocalizedFields(menu.get({ plain: true }), locale) : null;
   }
 
-  static async findByIds(ids, locale = 'en') {
-    const query = 'SELECT * FROM menus WHERE id = ANY($1::int[])';
-    const result = await executeQuery(query, [ids]);
-    
-    // Add localized fields to each menu item
-    return result.rows.map(menu => this.addLocalizedFields(menu, locale));
+  static async findByIds(ids, locale = require('../utils/constants').DEFAULT_LOCALE) {
+    const { Menu } = orm.models;
+    const menus = await Menu.findAll({ where: { id: ids } });
+    return menus.map(m => this.addLocalizedFields(m.get({ plain: true }), locale));
   }
 
   static async create(menuData) {
-    const query = `
-      INSERT INTO menus (name_th, name_en, category_th, category_en, base_price, image_url, description_th, description_en, customizations, active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *
-    `;
-    const result = await executeQuery(query, [
-      menuData.name_th || null,
-      menuData.name_en || null,
-      menuData.category_th || null,
-      menuData.category_en || null,
-      menuData.base_price,
-      menuData.image_url || null,
-      menuData.description_th || null,
-      menuData.description_en || null,
-      menuData.customizations || {},
-      menuData.active ?? true
-    ]);
-    return result.rows[0];
+    const { Menu } = orm.models;
+    const created = await Menu.create({
+      name_th: menuData.name_th || null,
+      name_en: menuData.name_en || null,
+      category_th: menuData.category_th || null,
+      category_en: menuData.category_en || null,
+      base_price: menuData.base_price,
+      image_url: menuData.image_url || null,
+      description_th: menuData.description_th || null,
+      description_en: menuData.description_en || null,
+      customizations: menuData.customizations || {},
+      active: menuData.active ?? true,
+    });
+    return created.get({ plain: true });
   }
 
   static async update(id, menuData) {
-    const query = `
-      UPDATE menus 
-      SET name_th = $1, name_en = $2, category_th = $3, category_en = $4, base_price = $5, image_url = $6, 
-          description_th = $7, description_en = $8, customizations = $9, active = $10, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
-      RETURNING *
-    `;
-    const result = await executeQuery(query, [
-      menuData.name_th || null,
-      menuData.name_en || null,
-      menuData.category_th || null,
-      menuData.category_en || null,
-      menuData.base_price,
-      menuData.image_url || null,
-      menuData.description_th || null,
-      menuData.description_en || null,
-      menuData.customizations || {},
-      menuData.active,
-      id
-    ]);
-    return result.rows[0];
+    const { Menu } = orm.models;
+    await Menu.update({
+      name_th: menuData.name_th || null,
+      name_en: menuData.name_en || null,
+      category_th: menuData.category_th || null,
+      category_en: menuData.category_en || null,
+      base_price: menuData.base_price,
+      image_url: menuData.image_url || null,
+      description_th: menuData.description_th || null,
+      description_en: menuData.description_en || null,
+      customizations: menuData.customizations || {},
+      active: menuData.active,
+    }, { where: { id } });
+    const updated = await Menu.findByPk(id);
+    return updated ? updated.get({ plain: true }) : null;
   }
 
   static async delete(id) {
-    const query = 'DELETE FROM menus WHERE id = $1 RETURNING *';
-    const result = await executeQuery(query, [id]);
-    return result.rows[0];
+    const { Menu } = orm.models;
+    const existing = await Menu.findByPk(id);
+    if (!existing) return null;
+    await Menu.destroy({ where: { id } });
+    return existing.get({ plain: true });
   }
 
-  static async getMenuByCategory(locale = 'en') {
-    // Optimized query with better ordering and null handling
-    const query = `
-      SELECT 
-        category_th,
-        category_en,
-        json_agg(
-          json_build_object(
-            'id', id,
-            'name_th', name_th,
-            'name_en', name_en,
-            'description_th', description_th,
-            'description_en', description_en,
-            'base_price', base_price,
-            'image_url', image_url,
-            'customizations', COALESCE(customizations, '{}'::jsonb)
-          ) ORDER BY 
-            CASE WHEN $1 = 'th' THEN COALESCE(name_th, name_en) 
-                 ELSE COALESCE(name_en, name_th) END
-        ) as items
-      FROM menus 
-      WHERE active = true 
-        AND (name_th IS NOT NULL OR name_en IS NOT NULL)
-        AND (category_th IS NOT NULL OR category_en IS NOT NULL)
-      GROUP BY category_th, category_en
-      ORDER BY 
-        CASE WHEN $1 = 'th' THEN COALESCE(category_th, category_en) 
-             ELSE COALESCE(category_en, category_th) END
-    `;
-    const result = await executeQuery(query, [locale]);
-    
-    // Add localized fields for categories and items
-    return result.rows.map(category => {
-      const localizedCategory = this.getLocalizedCategory(category, locale);
-      const localizedItems = category.items.map(item => {
-        // Add category information to each item before localizing
-        const itemWithCategory = {
-          ...item,
-          category_th: category.category_th,
-          category_en: category.category_en
-        };
-        return this.addLocalizedFields(itemWithCategory, locale);
-      });
-      
-      return {
-        category: localizedCategory,
-        items: localizedItems
-      };
+  static async getMenuByCategory(locale = require('../utils/constants').DEFAULT_LOCALE) {
+    const { Menu } = orm.models;
+    const menus = await Menu.findAll({ where: { active: true } });
+    const plain = menus.map(m => m.get({ plain: true }));
+    // Group by category pair
+    const groups = new Map();
+    for (const item of plain) {
+      const key = `${item.category_th || ''}||${item.category_en || ''}`;
+      if (!groups.has(key)) {
+        groups.set(key, { category_th: item.category_th, category_en: item.category_en, items: [] });
+      }
+      groups.get(key).items.push(item);
+    }
+    // Sort groups and items by localized values
+    const sorted = Array.from(groups.values()).sort((a, b) => {
+      const ca = this.getLocalizedCategory(a, locale) || '';
+      const cb = this.getLocalizedCategory(b, locale) || '';
+      return String(ca).localeCompare(String(cb));
     });
+    return sorted.map(category => ({
+      category: this.getLocalizedCategory(category, locale),
+      items: category.items
+        .map(item => this.addLocalizedFields({ ...item }, locale))
+        .sort((x, y) => String(x.name || '').localeCompare(String(y.name || '')))
+    }));
   }
 
-  static addLocalizedFields(menu, locale = 'en') {
+  static addLocalizedFields(menu, locale = require('../utils/constants').DEFAULT_LOCALE) {
     const localized = { ...menu };
     
     // Set localized values based on the requested locale
@@ -179,7 +138,7 @@ class Menu {
     return localized;
   }
 
-  static getLocalizedCategory(categoryData, locale = 'en') {
+  static getLocalizedCategory(categoryData, locale = require('../utils/constants').DEFAULT_LOCALE) {
     if (locale === 'th' && categoryData.category_th) {
       return categoryData.category_th;
     } else if (locale === 'en' && categoryData.category_en) {
