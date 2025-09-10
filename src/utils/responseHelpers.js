@@ -63,7 +63,8 @@ const sendValidationError = (res, errors) => {
  * @param {string} operation - Operation that failed
  */
 const handleDatabaseError = (res, error, operation = 'Database operation') => {
-  console.error(`${operation} failed:`, error);
+  const { LOG_MESSAGES } = require('./constants');
+  console.error(`${operation} ${LOG_MESSAGES.RESPONSE_OPERATION_FAILED_SUFFIX}`, error);
   return sendError(res, ERROR_MESSAGES.SERVER_ERROR, 500);
 };
 

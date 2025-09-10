@@ -16,7 +16,8 @@ class Localization {
         const data = fs.readFileSync(filePath, 'utf8');
         this.translations[locale] = JSON.parse(data);
       } catch (error) {
-        console.error(`Failed to load translations for locale ${locale}:`, error.message);
+        const { LOG_MESSAGES } = require('./constants');
+        console.error(`${LOG_MESSAGES.LOCALIZATION_LOAD_FAILED_PREFIX} ${locale}:`, error.message);
       }
     }
   }

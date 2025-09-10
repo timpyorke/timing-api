@@ -38,7 +38,8 @@ class DatabaseMonitor {
         
         // Log queries taking longer than 1 second
         if (duration > 1000) {
-          console.warn(`Slow query detected (${duration}ms):`, {
+          const { LOG_MESSAGES } = require('./constants');
+          console.warn(`${LOG_MESSAGES.DB_MONITOR_SLOW_QUERY_PREFIX} (${duration}ms):`, {
             query: text.substring(0, 100) + '...',
             duration,
             timestamp: new Date().toISOString()
@@ -48,7 +49,8 @@ class DatabaseMonitor {
         return result;
       } catch (error) {
         const duration = Date.now() - start;
-        console.error(`Query failed (${duration}ms):`, {
+        const { LOG_MESSAGES } = require('./constants');
+        console.error(`${LOG_MESSAGES.DB_MONITOR_QUERY_FAILED_PREFIX} (${duration}ms):`, {
           query: text.substring(0, 100) + '...',
           error: error.message,
           duration

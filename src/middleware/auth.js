@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { admin } = require('../config/firebase');
 const { sendError } = require('../utils/responseHelpers');
-const { ERROR_MESSAGES } = require('../utils/constants');
+const { ERROR_MESSAGES, LOG_MESSAGES } = require('../utils/constants');
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -20,13 +20,13 @@ const authenticateToken = async (req, res, next) => {
     } catch (jwtError) {
       // If JWT fails, try Firebase token (only if Firebase is available)
       if (!admin) {
-        console.log('🔐 JWT failed and Firebase is disabled');
+    console.log(LOG_MESSAGES.AUTH_JWT_FAILED_FIREBASE_DISABLED);
         return sendError(res, ERROR_MESSAGES.UNAUTHORIZED, 401);
       }
-      console.log('🔐 JWT failed, trying Firebase token verification');
+    console.log(LOG_MESSAGES.AUTH_JWT_FAILED_TRY_FIREBASE);
     }
     
-    console.log('🔐 Firebase token verification attempt:', {
+    console.log(LOG_MESSAGES.AUTH_FIREBASE_ATTEMPT_PREFIX, {
       tokenLength: token.length,
       tokenStart: token.substring(0, 20) + '...',
       timestamp: new Date().toISOString()
@@ -35,7 +35,7 @@ const authenticateToken = async (req, res, next) => {
     // Verify Firebase JWT token
     const decodedToken = await admin.auth().verifyIdToken(token);
     
-    console.log('✅ Firebase token verified successfully:', {
+    console.log(LOG_MESSAGES.AUTH_FIREBASE_VERIFIED_PREFIX, {
       uid: decodedToken.uid,
       email: decodedToken.email,
       exp: decodedToken.exp,
@@ -51,7 +51,7 @@ const authenticateToken = async (req, res, next) => {
     
     next();
   } catch (error) {
-    console.error('❌ Token verification error:', {
+    console.error(LOG_MESSAGES.AUTH_TOKEN_VERIFICATION_ERROR_PREFIX, {
       errorCode: error.code,
       errorMessage: error.message,
       tokenLength: token?.length ?? 0,
