@@ -156,14 +156,50 @@ class Order {
   static async update(id, orderData) {
     const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
     return await sequelize.transaction(async (t) => {
-      const [count] = await OrderModel.update({
+      // Load existing items for delta calculation
+      const existing = await OrderModel.findByPk(id, { include: [{ model: OrderItemModel, as: 'items' }], transaction: t, lock: t.LOCK.UPDATE });
+      if (!existing) throw new Error('Order not found');
+
+      const oldCounts = new Map();
+      for (const it of (existing.items || [])) {
+        const key = it.menu_id;
+        oldCounts.set(key, (oldCounts.get(key) || 0) + Number(it.quantity || 0));
+      }
+      const newCounts = new Map();
+      for (const it of (orderData.items || [])) {
+        const key = it.menu_id;
+        newCounts.set(key, (newCounts.get(key) || 0) + Number(it.quantity || 0));
+      }
+
+      const menuIds = new Set([...oldCounts.keys(), ...newCounts.keys()]);
+      const toDeduct = [];
+      const toRestore = [];
+      for (const menuId of menuIds) {
+        const before = oldCounts.get(menuId) || 0;
+        const after = newCounts.get(menuId) || 0;
+        const delta = after - before;
+        if (delta > 0) toDeduct.push({ menu_id: menuId, quantity: delta });
+        else if (delta < 0) toRestore.push({ menu_id: menuId, quantity: -delta });
+      }
+
+      // Apply inventory adjustments first to fail fast if insufficient stock
+      if (toRestore.length) {
+        await Inventory.restoreStockForOrder(toRestore, t);
+      }
+      if (toDeduct.length) {
+        await Inventory.checkAndDeductStockForOrder(toDeduct, t);
+      }
+
+      // Update order header
+      await existing.update({
         customer_id: orderData.customer_id || null,
         customer_info: orderData.customer_info,
         total: orderData.total,
         discount_amount: orderData.discount_amount || 0,
         notes: orderData.notes || null,
-      }, { where: { id }, transaction: t });
-      if (!count) throw new Error('Order not found');
+      }, { transaction: t });
+
+      // Replace items
       await OrderItemModel.destroy({ where: { order_id: id }, transaction: t });
       const itemsPayload = (orderData.items || []).map(i => ({
         order_id: id,
@@ -180,12 +216,24 @@ class Order {
   }
 
   static async delete(id) {
-    const { sequelize, models: { Order: OrderModel } } = orm;
+    const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
     return await sequelize.transaction(async (t) => {
-      const order = await Order.findById(id);
-      if (!order) return null;
+      // Fetch order with items for stock restoration
+      const existing = await OrderModel.findByPk(id, { include: [{ model: OrderItemModel, as: 'items' }], transaction: t, lock: t.LOCK.UPDATE });
+      if (!existing) return null;
+
+      // If order is not cancelled, restore stock before delete
+      if (existing.status !== ORDER_STATUS.CANCELLED) {
+        const items = (existing.items || []).map(i => ({ menu_id: i.menu_id, quantity: i.quantity }));
+        if (items.length) {
+          await Inventory.restoreStockForOrder(items, t);
+        }
+      }
+
+      // Capture plain to return
+      const plain = existing.get({ plain: true });
       await OrderModel.destroy({ where: { id }, transaction: t });
-      return order;
+      return plain;
     });
   }
 

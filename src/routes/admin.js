@@ -564,11 +564,13 @@ router.put('/orders/:id', authenticateToken, validateId, async (req, res) => {
       message: 'Order updated successfully'
     });
   } catch (error) {
+    const msg = String(error?.message || '').toLowerCase();
+    if (msg.includes('insufficient stock') || msg.includes('ingredient not found')) {
+      console.error(LOG_MESSAGES.ERROR_UPDATING_ORDER_PREFIX, error?.message || error);
+      return res.status(400).json({ success: false, error: error.message });
+    }
     console.error(LOG_MESSAGES.ERROR_UPDATING_ORDER_PREFIX, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update order'
-    });
+    return res.status(500).json({ success: false, error: 'Failed to update order' });
   }
 });
 
