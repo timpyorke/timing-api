@@ -1,6 +1,6 @@
 const express = require('express');
 const line = require('@line/bot-sdk');
-const pool = require('../config/database');
+const orm = require('../orm');
 
 const router = express.Router();
 
@@ -21,17 +21,15 @@ if (channelAccessToken) {
 
 // Helper: upsert LINE user id into DB with optional profile info
 async function upsertLineUser(lineUserId, userInfo = {}) {
-  const query = `
-    INSERT INTO line_tokens (line_user_id, user_info)
-    VALUES ($1, $2::jsonb)
-    ON CONFLICT (line_user_id)
-    DO UPDATE SET user_info = EXCLUDED.user_info, updated_at = CURRENT_TIMESTAMP
-    RETURNING id, line_user_id, created_at, updated_at
-  `;
-  const params = [lineUserId, JSON.stringify(userInfo || {})];
   try {
-    const { rows } = await pool.query(query, params);
-    return rows[0];
+    const { LineToken } = orm.models;
+    await LineToken.upsert({ line_user_id: lineUserId, user_info: userInfo || {} });
+    const record = await LineToken.findOne({
+      attributes: ['id', 'line_user_id', 'created_at', 'updated_at'],
+      where: { line_user_id: lineUserId },
+      raw: true,
+    });
+    return record;
   } catch (err) {
     console.error('LINE webhook: failed to upsert line_user_id', { lineUserId, error: err.message });
     throw err;
@@ -41,7 +39,8 @@ async function upsertLineUser(lineUserId, userInfo = {}) {
 // Helper: remove LINE user id (on unfollow)
 async function removeLineUser(lineUserId) {
   try {
-    await pool.query('DELETE FROM line_tokens WHERE line_user_id = $1', [lineUserId]);
+    const { LineToken } = orm.models;
+    await LineToken.destroy({ where: { line_user_id: lineUserId } });
   } catch (err) {
     console.error('LINE webhook: failed to remove line_user_id', { lineUserId, error: err.message });
   }
@@ -133,4 +132,3 @@ if (hasConfig) {
 }
 
 module.exports = router;
-
