@@ -681,6 +681,41 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
 
 /**
  * @swagger
+ * /api/admin/ingredients:
+ *   get:
+ *     summary: List ingredients and current stock
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: Ingredients retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     ingredients:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Ingredient'
+ *                     count:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+/**
+ * @swagger
  * /api/admin/menu:
  *   get:
  *     summary: Get all menu items (including inactive)
@@ -1558,8 +1593,29 @@ router.get('/ingredients', authenticateToken, asyncHandler(async (req, res) => {
   sendSuccess(res, { ingredients: items, count: items.length });
 }));
 
-// POST /api/admin/ingredients - upsert ingredient and optionally set stock
-// body: { name: 'milk', unit: 'ml', stock: 1000 }
+/**
+ * @swagger
+ * /api/admin/ingredients:
+ *   post:
+ *     summary: Upsert ingredient and optionally set stock
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpsertIngredientRequest'
+ *     responses:
+ *       200:
+ *         description: Ingredient saved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Ingredient'
+ */
 router.post('/ingredients', authenticateToken, asyncHandler(async (req, res) => {
   const { name, unit, stock } = req.body || {};
   if (!name || !unit) return sendError(res, 'name and unit are required', 400);
@@ -1571,8 +1627,29 @@ router.post('/ingredients', authenticateToken, asyncHandler(async (req, res) => 
   sendSuccess(res, result, 'Ingredient saved');
 }));
 
-// POST /api/admin/ingredients/add-stock - add to current stock
-// body: { name: 'milk', quantity: 500 }
+/**
+ * @swagger
+ * /api/admin/ingredients/add-stock:
+ *   post:
+ *     summary: Add quantity to current stock
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AddStockRequest'
+ *     responses:
+ *       200:
+ *         description: Stock added and ingredient returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Ingredient'
+ */
 router.post('/ingredients/add-stock', authenticateToken, asyncHandler(async (req, res) => {
   const { name, quantity } = req.body || {};
   if (!name || !Number.isFinite(Number(quantity))) return sendError(res, 'name and numeric quantity required', 400);
@@ -1580,8 +1657,54 @@ router.post('/ingredients/add-stock', authenticateToken, asyncHandler(async (req
   sendSuccess(res, updated, 'Stock added');
 }));
 
-// POST /api/admin/menu/:id/recipe - set menu recipe
-// body: { items: [{ ingredient_name: 'milk', quantity: 120 }, { ingredient_name: 'coffee', quantity: 15 }] }
+/**
+ * @swagger
+ * /api/admin/menu/{id}/recipe:
+ *   post:
+ *     summary: Set menu recipe (ingredients and per-unit quantities)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Menu item ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SetRecipeRequest'
+ *     responses:
+ *       200:
+ *         description: Recipe saved and returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     menu_id:
+ *                       type: integer
+ *                     recipe:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           menu_id: { type: integer }
+ *                           ingredient_id: { type: integer }
+ *                           name: { type: string }
+ *                           unit: { type: string }
+ *                           quantity_per_unit: { type: number }
+ */
 router.post('/menu/:id/recipe', authenticateToken, validateId, asyncHandler(async (req, res) => {
   const menuId = Number(req.params.id);
   const items = (req.body && req.body.items) || [];

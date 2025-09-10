@@ -141,6 +141,8 @@ Access the complete API documentation with live testing at:
 | **[LOCALIZATION.md](LOCALIZATION.md)** | Locale and translation guide          |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Deployment instructions              |
 | **[POSTMAN_README.md](POSTMAN_README.md)** | Postman collection usage guide        |
+| **[INVENTORY.md](docs/INVENTORY.md)** | Inventory module and endpoints       |
+| **Postman Collection** | Import `docs/postman_collection.json` with `docs/postman_environment.json` |
 
 ## 🔐 Authentication
 
@@ -187,6 +189,10 @@ Password: admin123
 | `PUT`    | `/api/admin/menu/:id`          | Update menu item                        |
 | `DELETE` | `/api/admin/menu/:id`          | Delete menu item                        |
 | `GET`    | `/api/admin/sales/today`       | Get daily sales summary                 |
+| `GET`    | `/api/admin/ingredients`       | List ingredients and stock              |
+| `POST`   | `/api/admin/ingredients`       | Upsert ingredient and optional stock    |
+| `POST`   | `/api/admin/ingredients/add-stock` | Add stock quantity                   |
+| `POST`   | `/api/admin/menu/:id/recipe`   | Set menu recipe                         |
 
 ### 🛠️ System Endpoints
 

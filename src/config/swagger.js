@@ -15,8 +15,8 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:3000',
-        description: 'Development server'
+        url: 'http://localhost:8000',
+        description: 'Local development server'
       },
       {
         url: 'https://api.timing.com',
@@ -39,6 +39,63 @@ const options = {
         }
       },
       schemas: {
+        Ingredient: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer', example: 1 },
+            name: { type: 'string', example: 'milk' },
+            unit: { type: 'string', example: 'ml' },
+            stock: { type: 'number', example: 1250 },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' },
+          }
+        },
+        StockMovement: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer', example: 10 },
+            ingredient_id: { type: 'integer', example: 1 },
+            change: { type: 'number', example: -120 },
+            reason: { type: 'string', example: 'order_deduction' },
+            order_id: { type: 'integer', nullable: true },
+            meta: { type: 'object' },
+            created_at: { type: 'string', format: 'date-time' },
+          }
+        },
+        UpsertIngredientRequest: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', example: 'milk' },
+            unit: { type: 'string', example: 'ml' },
+            stock: { type: 'number', nullable: true, example: 1000 }
+          },
+          required: ['name', 'unit']
+        },
+        AddStockRequest: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', example: 'milk' },
+            quantity: { type: 'number', example: 500 }
+          },
+          required: ['name', 'quantity']
+        },
+        SetRecipeRequest: {
+          type: 'object',
+          properties: {
+            items: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  ingredient_name: { type: 'string', example: 'milk' },
+                  quantity: { type: 'number', example: 120 }
+                },
+                required: ['ingredient_name', 'quantity']
+              }
+            }
+          },
+          required: ['items']
+        },
         Error: {
           type: 'object',
           properties: {

@@ -45,6 +45,11 @@ npm run dev
 - **Get All Orders** - Retrieve orders with filtering
 - **Update Order Status** - Change order status
 - **Menu Management** - Full CRUD operations
+- **Inventory Management**
+  - List ingredients and stock
+  - Upsert ingredient (name, unit, optional stock)
+  - Add stock quantity
+  - Set menu recipe (ingredient quantites per serving)
 - **Sales Reports** - Get today's sales data
 - LINE notifications are automatic on order creation (no manual test endpoint)
 
@@ -82,6 +87,11 @@ npm run dev
 2. Get All Orders
 3. Update Order Status
 4. Get Today's Sales
+5. Inventory
+   - Upsert Ingredient (e.g., milk, ml, stock: 1000)
+   - Add Stock (optional)
+   - Set Menu Recipe for a menu item
+   - Create/Update Order to verify stock deduction/restore
 
 ### 📱 Menu Management
 1. Admin Login
@@ -193,6 +203,11 @@ Each request includes test scripts that:
 - Use Collection Runner for automated testing
 - Set up data files for multiple test scenarios
 - Export results for reporting
+
+## Files
+
+- `docs/postman_collection.json` — the collection
+- `docs/postman_environment.json` — environment variables
 
 ## Production Testing
 
