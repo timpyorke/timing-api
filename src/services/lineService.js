@@ -1,5 +1,5 @@
 const line = require('@line/bot-sdk');
-const pool = require('../config/database');
+const orm = require('../orm');
 
 // Initialize LINE client using channel access token
 const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -14,12 +14,17 @@ if (channelAccessToken) {
 // Helper to fetch all registered LINE user IDs from DB
 async function getAllLineUserIds() {
   try {
-    const result = await pool.query('SELECT line_user_id FROM line_tokens');
-    const ids = result.rows.map(r => r.line_user_id).filter(Boolean);
+    const { LineToken } = orm.models;
+    if (!LineToken) {
+      console.error('ORM model LineToken not initialized');
+      return [];
+    }
+    const rows = await LineToken.findAll({ attributes: ['line_user_id'], raw: true });
+    const ids = rows.map(r => r.line_user_id).filter(Boolean);
     // Deduplicate
     return Array.from(new Set(ids));
   } catch (err) {
-    console.error('Failed to fetch LINE user IDs:', err.message);
+    console.error('Failed to fetch LINE user IDs (ORM):', err.message);
     return [];
   }
 }
@@ -116,4 +121,3 @@ module.exports = {
   sendOrderCreatedNotification,
   buildOrderCreatedMessage,
 };
-
