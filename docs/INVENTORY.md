@@ -36,6 +36,7 @@ Created via migration: `migrations/20250909_01_create_inventory.js`
 - `GET /api/admin/ingredients` — list ingredients and stock
 - `POST /api/admin/ingredients` — upsert ingredient, optionally set `stock`
 - `POST /api/admin/ingredients/add-stock` — add to current stock
+- `DELETE /api/admin/ingredients/:id` — delete ingredient (cascades recipe & movements)
 - `POST /api/admin/menu/:id/recipe` — set menu recipe
 
 See Swagger at `/api-docs` for request/response schemas.
@@ -45,4 +46,3 @@ See Swagger at `/api-docs` for request/response schemas.
 - DECIMAL fields are handled as numbers in responses
 - All stock writes are wrapped in transactions with row-level locks
 - Use the Postman collection in `docs/postman_collection.json` for quick testing
-
