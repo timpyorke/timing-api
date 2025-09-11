@@ -1,0 +1,227 @@
+{
+  "info": {
+    "name": "Timing API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0",
+    "description": "Postman collection for Timing API"
+  },
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "url": "{{baseUrl}}/health" },
+          "response": []
+        },
+        {
+          "name": "API Docs",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api-docs" },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Customer",
+      "item": [
+        {
+          "name": "Get Menu",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/menu?locale={{locale}}", "host": ["{{baseUrl}}"], "path": ["api","menu"], "query": [{"key":"locale","value":"{{locale}}"}] } },
+          "response": []
+        },
+        {
+          "name": "Get Menu Item",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/menu/{{testMenuId}}?locale={{locale}}" },
+          "response": []
+        },
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": "{{baseUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_info\": {\n    \"name\": \"John Doe\",\n    \"phone\": \"+66901234567\",\n    \"email\": \"john@example.com\"\n  },\n  \"items\": [\n    { \"menu_id\": {{testMenuId}}, \"quantity\": 1, \"price\": 100.0 }\n  ],\n  \"discount_amount\": 0,\n  \"total\": 100.0,\n  \"notes\": \"No sugar please\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Created', function () { pm.response.to.have.status(201); });",
+                  "var json = pm.response.json();",
+                  "pm.environment.set('testOrderId', json.data && json.data.id ? json.data.id : pm.environment.get('testOrderId'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Order Status",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/orders/{{testOrderId}}/status" },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "auth": { "type": "bearer", "bearer": [{"key":"token","value":"{{adminToken}}","type":"string"}] },
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": "{{baseUrl}}/api/admin/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('OK', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.environment.set('adminToken', json.data && json.data.token ? json.data.token : '');"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Orders",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/orders" },
+          "response": []
+        },
+        {
+          "name": "Create Order (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": "{{baseUrl}}/api/admin/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_info\": {\n    \"name\": \"Walk-in\"\n  },\n  \"items\": [\n    { \"menu_id\": {{testMenuId}}, \"quantity\": 1, \"price\": 100.0 }\n  ],\n  \"discount_amount\": 0,\n  \"total\": 100.0\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Order",
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": "{{baseUrl}}/api/admin/orders/{{testOrderId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"customer_info\": {\n    \"name\": \"Updated Name\"\n  },\n  \"items\": [\n    { \"menu_id\": {{testMenuId}}, \"quantity\": 2, \"price\": 100.0 }\n  ],\n  \"discount_amount\": 0,\n  \"total\": 200.0\n}" }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": "{{baseUrl}}/api/admin/orders/{{testOrderId}}/status",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"preparing\"\n}" }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Order",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/admin/orders/{{testOrderId}}" },
+          "response": []
+        },
+        {
+          "name": "Get Admin Menu",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/menu" },
+          "response": []
+        },
+        {
+          "name": "Get Menu Item (Admin)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/menu/{{testMenuId}}" },
+          "response": []
+        },
+        {
+          "name": "Create Menu Item",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": "{{baseUrl}}/api/admin/menu",
+            "body": { "mode": "raw", "raw": "{\n  \"name_en\": \"Cappuccino\",\n  \"name_th\": \"คาปูชิโน่\",\n  \"category_en\": \"Coffee\",\n  \"category_th\": \"กาแฟ\",\n  \"base_price\": 100.0,\n  \"description_en\": \"Rich espresso with steamed milk\",\n  \"description_th\": \"เอสเปรสโซ่เข้มข้นกับนมที่อุ่น\",\n  \"active\": true\n}" }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Menu Item",
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": "{{baseUrl}}/api/admin/menu/{{testMenuId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"name_en\": \"Latte\"\n}" }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Menu Item",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/admin/menu/{{testMenuId}}" },
+          "response": []
+        },
+        {
+          "name": "Sales Today",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/sales/today" },
+          "response": []
+        },
+        {
+          "name": "Sales Insights",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/sales/insights" },
+          "response": []
+        },
+        {
+          "name": "Top Selling Items",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/sales/top-items?limit=10" },
+          "response": []
+        },
+        {
+          "name": "List Ingredients",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/ingredients" },
+          "response": []
+        },
+        {
+          "name": "Upsert Ingredient",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": "{{baseUrl}}/api/admin/ingredients",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"milk\",\n  \"unit\": \"ml\",\n  \"stock\": 1000\n}" }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Stock",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": "{{baseUrl}}/api/admin/ingredients/add-stock",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"milk\",\n  \"quantity\": 500\n}" }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Menu Recipe",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": "{{baseUrl}}/api/admin/menu/{{testMenuId}}/recipe",
+            "body": { "mode": "raw", "raw": "{\n  \"items\": [\n    { \"ingredient_name\": \"milk\", \"quantity\": 120 }\n  ]\n}" }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
+
