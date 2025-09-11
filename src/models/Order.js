@@ -137,25 +137,71 @@ class Order {
   static async updateStatus(id, status) {
     const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
     return await sequelize.transaction(async (t) => {
-      // Select only needed columns to avoid schema drift issues (e.g., note vs notes)
-      const existing = await OrderModel.findByPk(id, {
-        attributes: ['id', 'status'],
-        include: [{ model: OrderItemModel, as: 'items', attributes: ['menu_id', 'quantity'] }],
-        transaction: t,
-        lock: t.LOCK.UPDATE,
-      });
-      if (!existing) return null;
-      const fromStatus = existing.status;
-      const toStatus = status;
+      try {
+        // Minimal ORM path without joins to avoid schema drift issues
+        const existing = await OrderModel.findByPk(id, {
+          attributes: ['id', 'status'],
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+        if (!existing) return null;
+        const fromStatus = existing.status;
+        const toStatus = status;
 
-      // If moving to cancelled from a non-cancelled state, restore stock
-      if (toStatus === ORDER_STATUS.CANCELLED && fromStatus !== ORDER_STATUS.CANCELLED) {
-        const items = (existing.items || []).map(i => ({ menu_id: i.menu_id, quantity: i.quantity }));
-        await Inventory.restoreStockForOrder(items, t);
+        // If moving to cancelled from a non-cancelled state, restore stock
+        if (toStatus === ORDER_STATUS.CANCELLED && fromStatus !== ORDER_STATUS.CANCELLED) {
+          const orderItems = await OrderItemModel.findAll({
+            attributes: ['menu_id', 'quantity'],
+            where: { order_id: id },
+            transaction: t,
+          });
+          const items = orderItems.map(i => ({ menu_id: i.menu_id, quantity: i.quantity }));
+          if (items.length) await Inventory.restoreStockForOrder(items, t);
+        }
+
+        await existing.update({ status: toStatus }, { transaction: t });
+        return existing.get({ plain: true });
+      } catch (ormErr) {
+        // Fallback: raw SQL to handle any model/column mismatch
+        const [rows] = await sequelize.query(
+          'SELECT id, status FROM orders WHERE id = :id FOR UPDATE',
+          { transaction: t, replacements: { id } }
+        );
+        if (!rows || rows.length === 0) return null;
+        const fromStatus = rows[0].status;
+        const toStatus = status;
+
+        if (toStatus === ORDER_STATUS.CANCELLED && fromStatus !== ORDER_STATUS.CANCELLED) {
+          const orderItems = await OrderItemModel.findAll({
+            attributes: ['menu_id', 'quantity'],
+            where: { order_id: id },
+            transaction: t,
+          });
+          const items = orderItems.map(i => ({ menu_id: i.menu_id, quantity: i.quantity }));
+          if (items.length) await Inventory.restoreStockForOrder(items, t);
+        }
+
+        await sequelize.query(
+          'UPDATE orders SET status = :status, updated_at = NOW() WHERE id = :id',
+          { transaction: t, replacements: { id, status: toStatus } }
+        );
+
+        // Prefer "notes" (plural); fallback to "note" if present
+        try {
+          const [afterRowsPref] = await sequelize.query(
+            'SELECT id, status, created_at, updated_at, total, customer_info, notes FROM orders WHERE id = :id',
+            { transaction: t, replacements: { id } }
+          );
+          if (afterRowsPref && afterRowsPref[0]) return afterRowsPref[0];
+        } catch (_) {
+          const [afterRowsAlt] = await sequelize.query(
+            'SELECT id, status, created_at, updated_at, total, customer_info, note AS notes FROM orders WHERE id = :id',
+            { transaction: t, replacements: { id } }
+          );
+          if (afterRowsAlt && afterRowsAlt[0]) return afterRowsAlt[0];
+        }
+        return { id: Number(id), status: toStatus };
       }
-
-      await existing.update({ status: toStatus }, { transaction: t });
-      return existing.get({ plain: true });
     });
   }
 

@@ -57,7 +57,7 @@ CREATE TABLE orders (
     total DECIMAL(10,2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    note VARCHAR(100)
+    notes VARCHAR(100)
 );
 
 -- Order items table
