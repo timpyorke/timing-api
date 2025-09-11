@@ -652,18 +652,11 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
     const { status } = req.body;
     const orderId = req.params.id;
 
-    // Check if order exists
-    const existingOrder = await Order.findById(orderId);
-    if (!existingOrder) {
-      return res.status(404).json({
-        success: false,
-        error: 'Order not found'
-      });
-    }
-
-    // Update order status
+    // Update order status (returns null if order not found)
     const updatedOrder = await Order.updateStatus(orderId, status);
-
+    if (!updatedOrder) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
 
     res.json({
       success: true,
@@ -671,7 +664,7 @@ router.put('/orders/:id/status', authenticateToken, validateId, validateOrderSta
       message: 'Order status updated successfully'
     });
   } catch (error) {
-    console.error(LOG_MESSAGES.ERROR_UPDATING_ORDER_STATUS_PREFIX, error);
+    console.error(LOG_MESSAGES.ERROR_UPDATING_ORDER_STATUS_PREFIX, error?.message || error);
     res.status(500).json({
       success: false,
       error: 'Failed to update order status'
