@@ -137,7 +137,13 @@ class Order {
   static async updateStatus(id, status) {
     const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
     return await sequelize.transaction(async (t) => {
-      const existing = await OrderModel.findByPk(id, { include: [{ model: OrderItemModel, as: 'items' }], transaction: t, lock: t.LOCK.UPDATE });
+      // Select only needed columns to avoid schema drift issues (e.g., note vs notes)
+      const existing = await OrderModel.findByPk(id, {
+        attributes: ['id', 'status'],
+        include: [{ model: OrderItemModel, as: 'items', attributes: ['menu_id', 'quantity'] }],
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
       if (!existing) return null;
       const fromStatus = existing.status;
       const toStatus = status;
