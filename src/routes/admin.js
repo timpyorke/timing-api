@@ -1659,6 +1659,65 @@ router.post('/ingredients/add-stock', authenticateToken, asyncHandler(async (req
 
 /**
  * @swagger
+ * /api/admin/ingredients/{id}:
+ *   delete:
+ *     summary: Delete ingredient by ID
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Ingredient ID
+ *     responses:
+ *       200:
+ *         description: Ingredient deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     name:
+ *                       type: string
+ *                     unit:
+ *                       type: string
+ *                 message:
+ *                   type: string
+ *                   example: Ingredient deleted
+ *       404:
+ *         description: Ingredient not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.delete('/ingredients/:id', authenticateToken, validateId, asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  const deleted = await Inventory.deleteIngredientById(id);
+  if (!deleted) return sendError(res, 'Ingredient not found', 404);
+  sendSuccess(res, deleted, 'Ingredient deleted');
+}));
+
+/**
+ * @swagger
  * /api/admin/menu/{id}/recipe:
  *   post:
  *     summary: Set menu recipe (ingredients and per-unit quantities)

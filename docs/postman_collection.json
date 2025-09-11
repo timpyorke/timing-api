@@ -211,6 +211,11 @@
           "response": []
         },
         {
+          "name": "Delete Ingredient",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/admin/ingredients/{{testIngredientId}}" },
+          "response": []
+        },
+        {
           "name": "Set Menu Recipe",
           "request": {
             "method": "POST",
@@ -224,4 +229,3 @@
     }
   ]
 }
-

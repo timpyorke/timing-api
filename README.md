@@ -192,6 +192,7 @@ Password: admin123
 | `GET`    | `/api/admin/ingredients`       | List ingredients and stock              |
 | `POST`   | `/api/admin/ingredients`       | Upsert ingredient and optional stock    |
 | `POST`   | `/api/admin/ingredients/add-stock` | Add stock quantity                   |
+| `DELETE` | `/api/admin/ingredients/:id`   | Delete ingredient                       |
 | `POST`   | `/api/admin/menu/:id/recipe`   | Set menu recipe                         |
 
 ### 🛠️ System Endpoints

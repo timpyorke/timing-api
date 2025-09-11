@@ -49,6 +49,7 @@ npm run dev
   - List ingredients and stock
   - Upsert ingredient (name, unit, optional stock)
   - Add stock quantity
+  - Delete ingredient by ID
   - Set menu recipe (ingredient quantites per serving)
 - **Sales Reports** - Get today's sales data
 - LINE notifications are automatic on order creation (no manual test endpoint)
@@ -72,6 +73,7 @@ npm run dev
 | `adminToken` | JWT token for admin auth | Auto-populated after login |
 | `testOrderId` | Sample order ID for testing | `1` |
 | `testMenuId` | Sample menu item ID | `1` |
+| `testIngredientId` | Sample ingredient ID for testing | `1` |
 
 ## Testing Workflows
 

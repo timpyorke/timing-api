@@ -44,6 +44,17 @@ class Inventory {
     return rows.map(r => r.get({ plain: true }));
   }
 
+  static async deleteIngredientById(id) {
+    const { sequelize, models: { Ingredient } } = orm;
+    return await sequelize.transaction(async (t) => {
+      const ing = await Ingredient.findByPk(id, { transaction: t });
+      if (!ing) return null;
+      await ing.destroy({ transaction: t });
+      // Related rows in menu_ingredients and stock_movements are removed by ON DELETE CASCADE
+      return { id: Number(id), name: ing.name, unit: ing.unit };
+    });
+  }
+
   static async setRecipe(menuId, recipe) {
     // recipe: [{ ingredient_name, quantity }, ...]
     // Ensure ingredients exist, then upsert mapping
