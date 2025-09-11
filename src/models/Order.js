@@ -371,6 +371,24 @@ class Order {
     
     const localization = require('../utils/localization');
     const localized = { ...order };
+
+    // Normalize timestamps to ISO strings to ensure they survive any deep-clone/serialization
+    try {
+      const c = order.created_at;
+      if (c) {
+        if (c instanceof Date) localized.created_at = c.toISOString();
+        else if (typeof c?.toISOString === 'function') localized.created_at = c.toISOString();
+        else if (typeof c === 'string') localized.created_at = c; // assume ISO already
+      }
+    } catch (_) { /* noop */ }
+    try {
+      const u = order.updated_at;
+      if (u) {
+        if (u instanceof Date) localized.updated_at = u.toISOString();
+        else if (typeof u?.toISOString === 'function') localized.updated_at = u.toISOString();
+        else if (typeof u === 'string') localized.updated_at = u;
+      }
+    } catch (_) { /* noop */ }
     
     // Set localized status directly
     localized.status = localization.getOrderStatusTranslation(order.status, locale);
