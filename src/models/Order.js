@@ -1,11 +1,21 @@
 const { ORDER_STATUS, DEFAULT_LOCALE, DAY_MS, DEFAULT_ANALYTICS_LOOKBACK_DAYS, TOP_ITEMS_LIMITS } = require('../utils/constants');
 const { Op, fn, col, literal } = require('sequelize');
 const orm = require('../orm');
+const Inventory = require('./Inventory');
 
 class Order {
   static async create(orderData) {
     const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
     return await sequelize.transaction(async (t) => {
+      // Deduct inventory for this order within the same transaction
+      try {
+        const itemsForStock = (orderData.items || []).map(i => ({ menu_id: i.menu_id, quantity: Number(i.quantity || 0) }));
+        await Inventory.checkAndDeductStockForOrder(itemsForStock, t);
+      } catch (e) {
+        // Surface clear inventory errors to the caller
+        throw new Error(e?.message || 'Inventory update failed');
+      }
+
       const created = await OrderModel.create({
         customer_id: orderData.customer_id || null,
         customer_info: orderData.customer_info,
@@ -125,23 +135,71 @@ class Order {
   }
 
   static async updateStatus(id, status) {
-    const { models: { Order: OrderModel } } = orm;
-    await OrderModel.update({ status }, { where: { id } });
-    const updated = await OrderModel.findByPk(id);
-    return updated ? updated.get({ plain: true }) : null;
+    const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
+    return await sequelize.transaction(async (t) => {
+      const existing = await OrderModel.findByPk(id, { include: [{ model: OrderItemModel, as: 'items' }], transaction: t, lock: t.LOCK.UPDATE });
+      if (!existing) return null;
+      const fromStatus = existing.status;
+      const toStatus = status;
+
+      // If moving to cancelled from a non-cancelled state, restore stock
+      if (toStatus === ORDER_STATUS.CANCELLED && fromStatus !== ORDER_STATUS.CANCELLED) {
+        const items = (existing.items || []).map(i => ({ menu_id: i.menu_id, quantity: i.quantity }));
+        await Inventory.restoreStockForOrder(items, t);
+      }
+
+      await existing.update({ status: toStatus }, { transaction: t });
+      return existing.get({ plain: true });
+    });
   }
 
   static async update(id, orderData) {
     const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
     return await sequelize.transaction(async (t) => {
-      const [count] = await OrderModel.update({
+      // Load existing items for delta calculation
+      const existing = await OrderModel.findByPk(id, { include: [{ model: OrderItemModel, as: 'items' }], transaction: t, lock: t.LOCK.UPDATE });
+      if (!existing) throw new Error('Order not found');
+
+      const oldCounts = new Map();
+      for (const it of (existing.items || [])) {
+        const key = it.menu_id;
+        oldCounts.set(key, (oldCounts.get(key) || 0) + Number(it.quantity || 0));
+      }
+      const newCounts = new Map();
+      for (const it of (orderData.items || [])) {
+        const key = it.menu_id;
+        newCounts.set(key, (newCounts.get(key) || 0) + Number(it.quantity || 0));
+      }
+
+      const menuIds = new Set([...oldCounts.keys(), ...newCounts.keys()]);
+      const toDeduct = [];
+      const toRestore = [];
+      for (const menuId of menuIds) {
+        const before = oldCounts.get(menuId) || 0;
+        const after = newCounts.get(menuId) || 0;
+        const delta = after - before;
+        if (delta > 0) toDeduct.push({ menu_id: menuId, quantity: delta });
+        else if (delta < 0) toRestore.push({ menu_id: menuId, quantity: -delta });
+      }
+
+      // Apply inventory adjustments first to fail fast if insufficient stock
+      if (toRestore.length) {
+        await Inventory.restoreStockForOrder(toRestore, t);
+      }
+      if (toDeduct.length) {
+        await Inventory.checkAndDeductStockForOrder(toDeduct, t);
+      }
+
+      // Update order header
+      await existing.update({
         customer_id: orderData.customer_id || null,
         customer_info: orderData.customer_info,
         total: orderData.total,
         discount_amount: orderData.discount_amount || 0,
         notes: orderData.notes || null,
-      }, { where: { id }, transaction: t });
-      if (!count) throw new Error('Order not found');
+      }, { transaction: t });
+
+      // Replace items
       await OrderItemModel.destroy({ where: { order_id: id }, transaction: t });
       const itemsPayload = (orderData.items || []).map(i => ({
         order_id: id,
@@ -158,12 +216,24 @@ class Order {
   }
 
   static async delete(id) {
-    const { sequelize, models: { Order: OrderModel } } = orm;
+    const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
     return await sequelize.transaction(async (t) => {
-      const order = await Order.findById(id);
-      if (!order) return null;
+      // Fetch order with items for stock restoration
+      const existing = await OrderModel.findByPk(id, { include: [{ model: OrderItemModel, as: 'items' }], transaction: t, lock: t.LOCK.UPDATE });
+      if (!existing) return null;
+
+      // If order is not cancelled, restore stock before delete
+      if (existing.status !== ORDER_STATUS.CANCELLED) {
+        const items = (existing.items || []).map(i => ({ menu_id: i.menu_id, quantity: i.quantity }));
+        if (items.length) {
+          await Inventory.restoreStockForOrder(items, t);
+        }
+      }
+
+      // Capture plain to return
+      const plain = existing.get({ plain: true });
       await OrderModel.destroy({ where: { id }, transaction: t });
-      return order;
+      return plain;
     });
   }
 
@@ -301,6 +371,24 @@ class Order {
     
     const localization = require('../utils/localization');
     const localized = { ...order };
+
+    // Normalize timestamps to ISO strings to ensure they survive any deep-clone/serialization
+    try {
+      const c = order.created_at;
+      if (c) {
+        if (c instanceof Date) localized.created_at = c.toISOString();
+        else if (typeof c?.toISOString === 'function') localized.created_at = c.toISOString();
+        else if (typeof c === 'string') localized.created_at = c; // assume ISO already
+      }
+    } catch (_) { /* noop */ }
+    try {
+      const u = order.updated_at;
+      if (u) {
+        if (u instanceof Date) localized.updated_at = u.toISOString();
+        else if (typeof u?.toISOString === 'function') localized.updated_at = u.toISOString();
+        else if (typeof u === 'string') localized.updated_at = u;
+      }
+    } catch (_) { /* noop */ }
     
     // Set localized status directly
     localized.status = localization.getOrderStatusTranslation(order.status, locale);

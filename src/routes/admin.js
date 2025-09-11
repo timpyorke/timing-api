@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
 const Menu = require('../models/Menu');
+const Inventory = require('../models/Inventory');
 const lineService = require('../services/lineService');
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const { 
@@ -401,11 +402,13 @@ router.post('/orders', authenticateToken, async (req, res) => {
       message: 'Order created successfully'
     });
   } catch (error) {
+    const msg = String(error?.message || '').toLowerCase();
+    if (msg.includes('insufficient stock') || msg.includes('ingredient not found')) {
+      console.error(LOG_MESSAGES.ERROR_CREATING_ORDER_PREFIX, error?.message || error);
+      return res.status(400).json({ success: false, error: error.message });
+    }
     console.error(LOG_MESSAGES.ERROR_CREATING_ORDER_PREFIX, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create order'
-    });
+    return res.status(500).json({ success: false, error: 'Failed to create order' });
   }
 });
 
@@ -561,11 +564,13 @@ router.put('/orders/:id', authenticateToken, validateId, async (req, res) => {
       message: 'Order updated successfully'
     });
   } catch (error) {
+    const msg = String(error?.message || '').toLowerCase();
+    if (msg.includes('insufficient stock') || msg.includes('ingredient not found')) {
+      console.error(LOG_MESSAGES.ERROR_UPDATING_ORDER_PREFIX, error?.message || error);
+      return res.status(400).json({ success: false, error: error.message });
+    }
     console.error(LOG_MESSAGES.ERROR_UPDATING_ORDER_PREFIX, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update order'
-    });
+    return res.status(500).json({ success: false, error: 'Failed to update order' });
   }
 });
 
@@ -1542,5 +1547,48 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
 // Removed test LINE notification endpoint per request
 
 // WebSocket stats endpoint removed
+
+/**
+ * Inventory management endpoints
+ */
+
+// GET /api/admin/ingredients - list ingredients and stock
+router.get('/ingredients', authenticateToken, asyncHandler(async (req, res) => {
+  const items = await Inventory.listIngredients();
+  sendSuccess(res, { ingredients: items, count: items.length });
+}));
+
+// POST /api/admin/ingredients - upsert ingredient and optionally set stock
+// body: { name: 'milk', unit: 'ml', stock: 1000 }
+router.post('/ingredients', authenticateToken, asyncHandler(async (req, res) => {
+  const { name, unit, stock } = req.body || {};
+  if (!name || !unit) return sendError(res, 'name and unit are required', 400);
+  const ing = await Inventory.upsertIngredient({ name, unit });
+  let result = ing;
+  if (typeof stock !== 'undefined') {
+    result = await Inventory.setStockByName(name, Number(stock));
+  }
+  sendSuccess(res, result, 'Ingredient saved');
+}));
+
+// POST /api/admin/ingredients/add-stock - add to current stock
+// body: { name: 'milk', quantity: 500 }
+router.post('/ingredients/add-stock', authenticateToken, asyncHandler(async (req, res) => {
+  const { name, quantity } = req.body || {};
+  if (!name || !Number.isFinite(Number(quantity))) return sendError(res, 'name and numeric quantity required', 400);
+  const updated = await Inventory.addStockByName(name, Number(quantity));
+  sendSuccess(res, updated, 'Stock added');
+}));
+
+// POST /api/admin/menu/:id/recipe - set menu recipe
+// body: { items: [{ ingredient_name: 'milk', quantity: 120 }, { ingredient_name: 'coffee', quantity: 15 }] }
+router.post('/menu/:id/recipe', authenticateToken, validateId, asyncHandler(async (req, res) => {
+  const menuId = Number(req.params.id);
+  const items = (req.body && req.body.items) || [];
+  if (!Array.isArray(items) || items.length === 0) return sendError(res, 'recipe items required', 400);
+  await Inventory.setRecipe(menuId, items);
+  const recipe = await Inventory.getRecipe(menuId);
+  sendSuccess(res, { menu_id: menuId, recipe }, 'Recipe saved');
+}));
 
 module.exports = router;
