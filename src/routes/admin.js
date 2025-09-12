@@ -1151,13 +1151,13 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
  *         schema:
  *           type: string
  *           format: date
- *         description: Start date for analysis (YYYY-MM-DD). Defaults to 30 days ago
+ *         description: Start date for analysis (YYYY-MM-DD). If omitted (and end_date omitted), returns all-time.
  *       - in: query
  *         name: end_date
  *         schema:
  *           type: string
  *           format: date
- *         description: End date for analysis (YYYY-MM-DD). Only used with start_date
+ *         description: End date (YYYY-MM-DD). With start_date, defines a range; alone means from beginning until end_date.
  *     responses:
  *       200:
  *         description: Sales insights retrieved successfully
@@ -1226,6 +1226,9 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
  *                     end_date:
  *                       type: string
  *                       format: date
+ *                     all_time:
+ *                       type: boolean
+ *                       example: true
  *       401:
  *         description: Unauthorized
  *         content:
@@ -1259,10 +1262,6 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
       ? ((parseInt(salesData.summary.completed_orders) / parseInt(salesData.summary.total_orders)) * 100).toFixed(1)
       : 0;
     
-    // Determine actual period used
-    const actualStartDate = start_date || new Date(Date.now() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS).toISOString().split('T')[0];
-    const actualEndDate = end_date || new Date().toISOString().split('T')[0];
-
     res.json({
       success: true,
       data: {
@@ -1287,8 +1286,9 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
         }))
       },
       period: {
-        start_date: actualStartDate,
-        end_date: actualEndDate
+        start_date: start_date || null,
+        end_date: end_date || null,
+        all_time: (!start_date && !end_date) ? true : false
       }
     });
   } catch (error) {
@@ -1385,6 +1385,9 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
  *                     end_date:
  *                       type: string
  *                       format: date
+ *                     all_time:
+ *                       type: boolean
+ *                       example: true
  *                 count:
  *                   type: integer
  *                   example: 10
@@ -1430,10 +1433,6 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
     }
 
     const topItems = await Order.getTopSellingItems(start_date, end_date, limitNum, locale);
-    
-    // Determine actual period used
-    const actualStartDate = start_date || new Date(Date.now() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS).toISOString().split('T')[0];
-    const actualEndDate = end_date || new Date().toISOString().split('T')[0];
 
     res.json({
       success: true,
@@ -1448,8 +1447,9 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
         percentage_of_total_sales: parseFloat(item.percentage_of_total_sales)
       })),
       period: {
-        start_date: actualStartDate,
-        end_date: actualEndDate
+        start_date: start_date || null,
+        end_date: end_date || null,
+        all_time: (!start_date && !end_date) ? true : false
       },
       count: topItems.length
     });
