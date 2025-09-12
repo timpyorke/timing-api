@@ -1138,6 +1138,135 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
 
 /**
  * @swagger
+ * /api/admin/sales/hourly:
+ *   get:
+ *     summary: Get hourly sales for a given day
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Target date (YYYY-MM-DD). Defaults to today if omitted.
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Optional start date (YYYY-MM-DD). When provided (alone or with end_date), aggregates by hour-of-day across the period.
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Optional end date (YYYY-MM-DD). When provided (alone or with start_date), aggregates by hour-of-day across the period. If both start_date and end_date are omitted and date is omitted, returns all-time.
+ *     responses:
+ *       200:
+ *         description: Hourly sales data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     date:
+ *                       type: string
+ *                       format: date
+ *                     hourly:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           hour:
+ *                             type: integer
+ *                             minimum: 0
+ *                             maximum: 23
+ *                           items_sold:
+ *                             type: integer
+ *                           orders_count:
+ *                             type: integer
+ *                           revenue:
+ *                             type: number
+ *                     totals:
+ *                       type: object
+ *                       properties:
+ *                         items_sold:
+ *                           type: integer
+ *                         orders_count:
+ *                           type: integer
+ *                         revenue:
+ *                           type: number
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/sales/hourly', authenticateToken, async (req, res) => {
+  try {
+    const { date, start_date, end_date } = req.query;
+    if (date && !DATE_REGEX_YYYY_MM_DD.test(date)) {
+      return res.status(400).json({ success: false, error: 'Invalid date format. Use YYYY-MM-DD' });
+    }
+    if (start_date && !DATE_REGEX_YYYY_MM_DD.test(start_date)) {
+      return res.status(400).json({ success: false, error: 'Invalid start_date format. Use YYYY-MM-DD' });
+    }
+    if (end_date && !DATE_REGEX_YYYY_MM_DD.test(end_date)) {
+      return res.status(400).json({ success: false, error: 'Invalid end_date format. Use YYYY-MM-DD' });
+    }
+
+    // If a specific date is provided, return that day's hourly (24 slots)
+    // Otherwise, aggregate hourly-of-day across period or all-time
+    const hourly = date
+      ? await Order.getHourlySalesByDay(date)
+      : await Order.getHourlySalesByPeriod(start_date || null, end_date || null);
+    const totals = hourly.reduce((acc, h) => {
+      acc.items_sold += Number(h.items_sold || 0);
+      acc.orders_count += Number(h.orders_count || 0);
+      acc.revenue += Number(h.revenue || 0);
+      return acc;
+    }, { items_sold: 0, orders_count: 0, revenue: 0 });
+
+    res.json({
+      success: true,
+      data: {
+        date: date || null,
+        period: {
+          start_date: start_date || null,
+          end_date: end_date || null,
+          all_time: (!date && !start_date && !end_date) ? true : false,
+        },
+        hourly: hourly.map(h => ({
+          hour: h.hour,
+          items_sold: parseInt(h.items_sold, 10) || 0,
+          orders_count: parseInt(h.orders_count, 10) || 0,
+          revenue: Math.round((parseFloat(h.revenue) || 0) * 100) / 100,
+        })),
+        totals: {
+          items_sold: parseInt(totals.items_sold, 10) || 0,
+          orders_count: parseInt(totals.orders_count, 10) || 0,
+          revenue: Math.round((parseFloat(totals.revenue) || 0) * 100) / 100,
+        }
+      }
+    });
+  } catch (error) {
+    console.error(LOG_MESSAGES.ERROR_FETCHING_SALES_INSIGHTS_PREFIX, error);
+    res.status(500).json({ success: false, error: 'Failed to fetch hourly sales' });
+  }
+});
+
+/**
+ * @swagger
  * /api/admin/sales/insights:
  *   get:
  *     summary: Get comprehensive sales insights
