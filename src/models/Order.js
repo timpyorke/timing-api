@@ -387,15 +387,15 @@ class Order {
     // Query aggregates grouped by hour
     const rows = await OrderModel.findAll({
       attributes: [
-        [fn('DATE_TRUNC', 'hour', col('created_at')), 'hour_bucket'],
+        [fn('DATE_TRUNC', 'hour', col('orders.created_at')), 'hour_bucket'],
         [fn('COALESCE', fn('SUM', col('items.quantity')), 0), 'items_sold'],
-        [fn('COUNT', fn('DISTINCT', col('id'))), 'orders_count'],
+        [fn('COUNT', fn('DISTINCT', col('orders.id'))), 'orders_count'],
         [fn('COALESCE', fn('SUM', literal('"items"."price" * "items"."quantity"')), 0), 'revenue'],
       ],
       where: { created_at: { [Op.between]: [start, end] } },
       include: [{ model: OrderItemModel, as: 'items', attributes: [] }],
-      group: [literal("DATE_TRUNC('hour', created_at)")],
-      order: [[literal("DATE_TRUNC('hour', created_at)"), 'ASC']],
+      group: [literal('DATE_TRUNC(\'hour\', "orders"."created_at")')],
+      order: [[literal('DATE_TRUNC(\'hour\', "orders"."created_at")'), 'ASC']],
       raw: true,
     });
 
@@ -458,15 +458,15 @@ class Order {
 
     const rows = await OrderModel.findAll({
       attributes: [
-        [fn('DATE_PART', 'hour', col('created_at')), 'hour_num'],
+        [fn('DATE_PART', 'hour', col('orders.created_at')), 'hour_num'],
         [fn('COALESCE', fn('SUM', col('items.quantity')), 0), 'items_sold'],
-        [fn('COUNT', fn('DISTINCT', col('id'))), 'orders_count'],
+        [fn('COUNT', fn('DISTINCT', col('orders.id'))), 'orders_count'],
         [fn('COALESCE', fn('SUM', literal('"items"."price" * "items"."quantity"')), 0), 'revenue'],
       ],
       ...(whereRange ? { where: whereRange } : {}),
       include: [{ model: OrderItemModel, as: 'items', attributes: [] }],
-      group: [literal("DATE_PART('hour', created_at)")],
-      order: [[literal("DATE_PART('hour', created_at)"), 'ASC']],
+      group: [literal('DATE_PART(\'hour\', "orders"."created_at")')],
+      order: [[literal('DATE_PART(\'hour\', "orders"."created_at")'), 'ASC']],
       raw: true,
     });
 
