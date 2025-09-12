@@ -1151,13 +1151,13 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
  *         schema:
  *           type: string
  *           format: date
- *         description: Start date for analysis (YYYY-MM-DD). Defaults to 30 days ago
+ *         description: Start date for analysis (YYYY-MM-DD). If omitted (and end_date omitted), returns all-time.
  *       - in: query
  *         name: end_date
  *         schema:
  *           type: string
  *           format: date
- *         description: End date for analysis (YYYY-MM-DD). Only used with start_date
+ *         description: End date (YYYY-MM-DD). With start_date, defines a range; alone means from beginning until end_date.
  *     responses:
  *       200:
  *         description: Sales insights retrieved successfully
@@ -1226,6 +1226,9 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
  *                     end_date:
  *                       type: string
  *                       format: date
+ *                     all_time:
+ *                       type: boolean
+ *                       example: true
  *       401:
  *         description: Unauthorized
  *         content:
@@ -1259,10 +1262,6 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
       ? ((parseInt(salesData.summary.completed_orders) / parseInt(salesData.summary.total_orders)) * 100).toFixed(1)
       : 0;
     
-    // Determine actual period used
-    const actualStartDate = start_date || new Date(Date.now() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS).toISOString().split('T')[0];
-    const actualEndDate = end_date || new Date().toISOString().split('T')[0];
-
     res.json({
       success: true,
       data: {
@@ -1287,8 +1286,9 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
         }))
       },
       period: {
-        start_date: actualStartDate,
-        end_date: actualEndDate
+        start_date: start_date || null,
+        end_date: end_date || null,
+        all_time: (!start_date && !end_date) ? true : false
       }
     });
   } catch (error) {
@@ -1315,13 +1315,13 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
  *         schema:
  *           type: string
  *           format: date
- *         description: Start date for analysis (YYYY-MM-DD). Defaults to 30 days ago
+ *         description: Start date (YYYY-MM-DD). If omitted (and end_date omitted), returns all-time.
  *       - in: query
  *         name: end_date
  *         schema:
  *           type: string
  *           format: date
- *         description: End date for analysis (YYYY-MM-DD). Only used with start_date
+ *         description: End date (YYYY-MM-DD). With start_date, defines a range; alone means from beginning until end_date.
  *       - in: query
  *         name: limit
  *         schema:
@@ -1385,6 +1385,9 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
  *                     end_date:
  *                       type: string
  *                       format: date
+ *                     all_time:
+ *                       type: boolean
+ *                       example: true
  *                 count:
  *                   type: integer
  *                   example: 10
@@ -1430,10 +1433,6 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
     }
 
     const topItems = await Order.getTopSellingItems(start_date, end_date, limitNum, locale);
-    
-    // Determine actual period used
-    const actualStartDate = start_date || new Date(Date.now() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS).toISOString().split('T')[0];
-    const actualEndDate = end_date || new Date().toISOString().split('T')[0];
 
     res.json({
       success: true,
@@ -1448,8 +1447,9 @@ router.get('/sales/top-items', authenticateToken, async (req, res) => {
         percentage_of_total_sales: parseFloat(item.percentage_of_total_sales)
       })),
       period: {
-        start_date: actualStartDate,
-        end_date: actualEndDate
+        start_date: start_date || null,
+        end_date: end_date || null,
+        all_time: (!start_date && !end_date) ? true : false
       },
       count: topItems.length
     });
@@ -1764,6 +1764,62 @@ router.post('/menu/:id/recipe', authenticateToken, validateId, asyncHandler(asyn
   await Inventory.setRecipe(menuId, items);
   const recipe = await Inventory.getRecipe(menuId);
   sendSuccess(res, { menu_id: menuId, recipe }, 'Recipe saved');
+}));
+
+/**
+ * @swagger
+ * /api/admin/menu/{id}/recipe:
+ *   get:
+ *     summary: Get menu recipe (ingredients and per-unit quantities)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Menu item ID
+ *     responses:
+ *       200:
+ *         description: Recipe retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     menu_id:
+ *                       type: integer
+ *                       example: 1
+ *                     recipe:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           menu_id: { type: integer, example: 1 }
+ *                           ingredient_id: { type: integer, example: 3 }
+ *                           name: { type: string, example: "Milk" }
+ *                           unit: { type: string, example: "ml" }
+ *                           quantity_per_unit: { type: number, example: 30 }
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/menu/:id/recipe', authenticateToken, validateId, asyncHandler(async (req, res) => {
+  const menuId = Number(req.params.id);
+  const recipe = await Inventory.getRecipe(menuId);
+  sendSuccess(res, { menu_id: menuId, recipe });
 }));
 
 module.exports = router;

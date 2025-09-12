@@ -189,11 +189,14 @@ Password: admin123
 | `PUT`    | `/api/admin/menu/:id`          | Update menu item                        |
 | `DELETE` | `/api/admin/menu/:id`          | Delete menu item                        |
 | `GET`    | `/api/admin/sales/today`       | Get daily sales summary                 |
+| `GET`    | `/api/admin/sales/insights`    | Sales insights (all-time if no dates)   |
+| `GET`    | `/api/admin/sales/top-items`   | Top items (all-time if no dates)        |
 | `GET`    | `/api/admin/ingredients`       | List ingredients and stock              |
 | `POST`   | `/api/admin/ingredients`       | Upsert ingredient and optional stock    |
 | `POST`   | `/api/admin/ingredients/add-stock` | Add stock quantity                   |
 | `DELETE` | `/api/admin/ingredients/:id`   | Delete ingredient                       |
 | `POST`   | `/api/admin/menu/:id/recipe`   | Set menu recipe                         |
+| `GET`    | `/api/admin/menu/:id/recipe`   | Get menu recipe (ingredients)           |
 
 ### 🛠️ System Endpoints
 
@@ -275,6 +278,25 @@ All endpoints return consistent JSON responses:
   "data": { ... },
   "message": "Operation completed successfully"
 }
+```
+
+## 📈 Sales Analytics Notes
+
+- If `start_date` and `end_date` are omitted on `/api/admin/sales/insights` and `/api/admin/sales/top-items`, the API returns all-time data.
+- If only `start_date` is provided, the period is from `start_date` to now.
+- If only `end_date` is provided, the period is from the beginning until `end_date` (inclusive).
+- Accepted date format: `YYYY-MM-DD`.
+
+Example:
+
+```
+# All-time
+GET /api/admin/sales/insights
+GET /api/admin/sales/top-items?limit=10
+
+# Date range
+GET /api/admin/sales/insights?start_date=2025-01-01&end_date=2025-09-12
+GET /api/admin/sales/top-items?start_date=2025-01-01&end_date=2025-09-12&limit=10
 ```
 
 ### Error Response

@@ -307,16 +307,20 @@ class Order {
 
   static async getSalesInsights(startDate = null, endDate = null, locale = DEFAULT_LOCALE) {
     const { models: { Order: OrderModel } } = orm;
-    let start, end;
+    // Build optional date range: if no dates provided, return all-time (no where clause)
+    let start = null, end = null, whereRange = undefined;
     if (startDate && endDate) {
       start = new Date(startDate + 'T00:00:00.000Z');
       end = new Date(endDate + 'T23:59:59.999Z');
+      whereRange = { created_at: { [Op.between]: [start, end] } };
     } else if (startDate) {
       start = new Date(startDate + 'T00:00:00.000Z');
       end = new Date();
-    } else {
-      end = new Date();
-      start = new Date(end.getTime() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS);
+      whereRange = { created_at: { [Op.between]: [start, end] } };
+    } else if (endDate) {
+      // All up to endDate (inclusive)
+      end = new Date(endDate + 'T23:59:59.999Z');
+      whereRange = { created_at: { [Op.lte]: end } };
     }
 
     const daily = await OrderModel.findAll({
@@ -332,7 +336,7 @@ class Order {
         [fn('SUM', literal(`CASE WHEN status = '${ORDER_STATUS.CANCELLED}' THEN 1 ELSE 0 END`)), 'cancelled_orders'],
         [fn('COALESCE', fn('SUM', literal(`CASE WHEN status = '${ORDER_STATUS.COMPLETED}' THEN total END`)), 0), 'completed_revenue'],
       ],
-      where: { created_at: { [Op.between]: [start, end] } },
+      ...(whereRange ? { where: whereRange } : {}),
       group: [literal("DATE_TRUNC('day', created_at)")],
       order: [[literal("DATE_TRUNC('day', created_at)"), 'DESC']],
       raw: true,
@@ -350,7 +354,7 @@ class Order {
         [fn('SUM', literal(`CASE WHEN status = '${ORDER_STATUS.CANCELLED}' THEN 1 ELSE 0 END`)), 'cancelled_orders'],
         [fn('COALESCE', fn('SUM', literal(`CASE WHEN status = '${ORDER_STATUS.COMPLETED}' THEN total END`)), 0), 'completed_revenue'],
       ],
-      where: { created_at: { [Op.between]: [start, end] } },
+      ...(whereRange ? { where: whereRange } : {}),
       raw: true,
     });
     const summary = summaryRaw[0] || {};
@@ -360,16 +364,19 @@ class Order {
 
   static async getTopSellingItems(startDate = null, endDate = null, limit = TOP_ITEMS_LIMITS.DEFAULT, locale = DEFAULT_LOCALE) {
     const { models: { Order, OrderItem, Menu } } = orm;
-    let start, end;
+    // Build optional date range for orders; if none, compute all-time
+    let start = null, end = null, orderWhere = undefined;
     if (startDate && endDate) {
       start = new Date(startDate + 'T00:00:00.000Z');
       end = new Date(endDate + 'T23:59:59.999Z');
+      orderWhere = { created_at: { [Op.between]: [start, end] } };
     } else if (startDate) {
       start = new Date(startDate + 'T00:00:00.000Z');
       end = new Date();
-    } else {
-      end = new Date();
-      start = new Date(end.getTime() - DEFAULT_ANALYTICS_LOOKBACK_DAYS * DAY_MS);
+      orderWhere = { created_at: { [Op.between]: [start, end] } };
+    } else if (endDate) {
+      end = new Date(endDate + 'T23:59:59.999Z');
+      orderWhere = { created_at: { [Op.lte]: end } };
     }
 
     const totalQuantity = await OrderItem.sum('quantity', {
@@ -377,7 +384,7 @@ class Order {
         model: Order,
         required: true,
         attributes: [], // prevent selecting order.* to avoid GROUP BY issues in aggregates
-        where: { created_at: { [Op.between]: [start, end] } },
+        ...(orderWhere ? { where: orderWhere } : {}),
       }],
     }) || 0;
 
@@ -394,7 +401,7 @@ class Order {
           model: Order,
           required: true,
           attributes: [], // do not select order columns when aggregating
-          where: { created_at: { [Op.between]: [start, end] } },
+          ...(orderWhere ? { where: orderWhere } : {}),
         },
         { model: Menu, as: 'menu', attributes: ['base_price', 'image_url', 'name_en', 'name_th', 'category_en', 'category_th'] }
       ],
