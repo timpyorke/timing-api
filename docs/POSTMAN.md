@@ -50,8 +50,14 @@ npm run dev
   - Upsert ingredient (name, unit, optional stock)
   - Add stock quantity
   - Delete ingredient by ID
-  - Set menu recipe (ingredient quantites per serving)
+  - Set menu recipe (ingredient quantities per serving)
+  - Get menu recipe (ingredients for a menu)
 - **Sales Reports** - Get today's sales data
+
+### 📈 Analytics Notes
+
+- Sales Insights and Top Items return all-time results when `start_date` and `end_date` are omitted.
+- Provide `start_date` and `end_date` to get a specific range, or only `end_date` to get data from the beginning up to that date.
 - LINE notifications are automatic on order creation (no manual test endpoint)
 
 ## Authentication Flow
@@ -93,6 +99,7 @@ npm run dev
    - Upsert Ingredient (e.g., milk, ml, stock: 1000)
    - Add Stock (optional)
    - Set Menu Recipe for a menu item
+   - Get Menu Recipe to verify
    - Create/Update Order to verify stock deduction/restore
 
 ### 📱 Menu Management

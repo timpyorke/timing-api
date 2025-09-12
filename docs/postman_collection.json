@@ -176,13 +176,39 @@
           "response": []
         },
         {
-          "name": "Sales Insights",
-          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/sales/insights" },
+          "name": "Sales Insights (All-time)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/sales/insights",
+            "description": "Returns all-time analytics when no start_date/end_date provided. Use ?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD for a date range."
+          },
           "response": []
         },
         {
-          "name": "Top Selling Items",
-          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/sales/top-items?limit=10" },
+          "name": "Sales Insights (Date Range)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/sales/insights?start_date=2025-01-01&end_date=2025-09-12",
+            "description": "Date range analytics. If only end_date is provided, period is beginning→end_date."
+          },
+          "response": []
+        },
+        {
+          "name": "Top Items (All-time)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/sales/top-items?limit=10",
+            "description": "Returns all-time top items when no date filters are provided."
+          },
+          "response": []
+        },
+        {
+          "name": "Top Items (Date Range)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/sales/top-items?start_date=2025-01-01&end_date=2025-09-12&limit=10",
+            "description": "Top items for a specific period."
+          },
           "response": []
         },
         {
@@ -222,6 +248,15 @@
             "header": [{"key":"Content-Type","value":"application/json"}],
             "url": "{{baseUrl}}/api/admin/menu/{{testMenuId}}/recipe",
             "body": { "mode": "raw", "raw": "{\n  \"items\": [\n    { \"ingredient_name\": \"milk\", \"quantity\": 120 }\n  ]\n}" }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Menu Recipe",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/menu/{{testMenuId}}/recipe",
+            "description": "Returns menu ingredients and per-unit quantities for the selected menu."
           },
           "response": []
         }
