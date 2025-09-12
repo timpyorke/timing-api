@@ -1315,13 +1315,13 @@ router.get('/sales/insights', authenticateToken, async (req, res) => {
  *         schema:
  *           type: string
  *           format: date
- *         description: Start date for analysis (YYYY-MM-DD). Defaults to 30 days ago
+ *         description: Start date (YYYY-MM-DD). If omitted (and end_date omitted), returns all-time.
  *       - in: query
  *         name: end_date
  *         schema:
  *           type: string
  *           format: date
- *         description: End date for analysis (YYYY-MM-DD). Only used with start_date
+ *         description: End date (YYYY-MM-DD). With start_date, defines a range; alone means from beginning until end_date.
  *       - in: query
  *         name: limit
  *         schema:
