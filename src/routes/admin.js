@@ -1766,4 +1766,60 @@ router.post('/menu/:id/recipe', authenticateToken, validateId, asyncHandler(asyn
   sendSuccess(res, { menu_id: menuId, recipe }, 'Recipe saved');
 }));
 
+/**
+ * @swagger
+ * /api/admin/menu/{id}/recipe:
+ *   get:
+ *     summary: Get menu recipe (ingredients and per-unit quantities)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *       - ApiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Menu item ID
+ *     responses:
+ *       200:
+ *         description: Recipe retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     menu_id:
+ *                       type: integer
+ *                       example: 1
+ *                     recipe:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           menu_id: { type: integer, example: 1 }
+ *                           ingredient_id: { type: integer, example: 3 }
+ *                           name: { type: string, example: "Milk" }
+ *                           unit: { type: string, example: "ml" }
+ *                           quantity_per_unit: { type: number, example: 30 }
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/menu/:id/recipe', authenticateToken, validateId, asyncHandler(async (req, res) => {
+  const menuId = Number(req.params.id);
+  const recipe = await Inventory.getRecipe(menuId);
+  sendSuccess(res, { menu_id: menuId, recipe });
+}));
+
 module.exports = router;
