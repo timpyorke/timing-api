@@ -1,5 +1,5 @@
 const { ORDER_STATUS, DEFAULT_LOCALE, DAY_MS, DEFAULT_ANALYTICS_LOOKBACK_DAYS, TOP_ITEMS_LIMITS } = require('../utils/constants');
-const { Op, fn, col, literal } = require('sequelize');
+const { Op, fn, col, literal, where: sqWhere } = require('sequelize');
 const orm = require('../orm');
 const Inventory = require('./Inventory');
 
@@ -369,7 +369,7 @@ class Order {
    * @param {string|null} dateStr - Target date in YYYY-MM-DD (defaults to today if null)
    * @returns {Array<{hour:number, items_sold:number, orders_count:number, revenue:number}>}
    */
-  static async getHourlySalesByDay(dateStr = null) {
+  static async getHourlySalesByDay(dateStr = null, tzArg = null) {
     const { models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
 
     // Resolve day range
@@ -404,7 +404,7 @@ class Order {
       hour: h,
       items_sold: 0,
       orders_count: 0,
-      revenue: 0,
+      revenue: 0, 
     }));
 
     // Map DB rows to hourly slots
@@ -543,6 +543,91 @@ class Order {
       average_price: parseFloat(r.average_price),
       percentage_of_total_sales: totalQuantity ? Math.round((parseInt(r.total_quantity_sold, 10) * 10000) / totalQuantity) / 100 : 0,
     }));
+  }
+
+  /**
+   * Hourly sales for a specific local day (timezone-aware).
+   * @param {string|null} dateStr - YYYY-MM-DD of the local day
+   * @param {string|null} tzArg - IANA timezone (e.g., Asia/Bangkok) or offset (+07:00)
+   * @returns {Promise<Array<{hour:number, items_sold:number, orders_count:number, revenue:number}>>}
+   */
+  static async getHourlySalesByDayLocal(dateStr = null, tzArg = null) {
+    const { models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
+    const tzRaw = tzArg || process.env.APP_TIMEZONE || 'UTC';
+    const tz = /^[A-Za-z0-9_\/+\-:]+$/.test(tzRaw) ? tzRaw : 'UTC';
+    const targetDate = dateStr || new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
+
+    const hourExpr = literal(`DATE_PART('hour', (("orders"."created_at" AT TIME ZONE 'UTC') AT TIME ZONE '${tz}'))`);
+    const localDateExpr = literal(`(("orders"."created_at" AT TIME ZONE 'UTC') AT TIME ZONE '${tz}')::date`);
+
+    const rows = await OrderModel.findAll({
+      attributes: [
+        [hourExpr, 'hour_num'],
+        [fn('COALESCE', fn('SUM', col('items.quantity')), 0), 'items_sold'],
+        [fn('COUNT', fn('DISTINCT', col('orders.id'))), 'orders_count'],
+        [fn('COALESCE', fn('SUM', literal('"items"."price" * "items"."quantity"')), 0), 'revenue'],
+      ],
+      where: sqWhere(localDateExpr, Op.eq, targetDate),
+      include: [{ model: OrderItemModel, as: 'items', attributes: [] }],
+      group: [hourExpr],
+      order: [[hourExpr, 'ASC']],
+      raw: true,
+    });
+
+    const hourly = Array.from({ length: 24 }, (_, h) => ({ hour: h, items_sold: 0, orders_count: 0, revenue: 0 }));
+    for (const r of rows) {
+      const hourIndex = parseInt(r.hour_num, 10) || 0;
+      if (hourIndex >= 0 && hourIndex < 24) {
+        hourly[hourIndex].items_sold = parseInt(r.items_sold, 10) || 0;
+        hourly[hourIndex].orders_count = parseInt(r.orders_count, 10) || 0;
+        hourly[hourIndex].revenue = parseFloat(r.revenue) || 0;
+      }
+    }
+    return hourly;
+  }
+
+  /**
+   * Hourly-of-day sales aggregated over a local period (timezone-aware).
+   * @param {string|null} startDate - YYYY-MM-DD local start date (inclusive)
+   * @param {string|null} endDate - YYYY-MM-DD local end date (inclusive)
+   * @param {string|null} tzArg - IANA timezone or offset
+   */
+  static async getHourlySalesByPeriodLocal(startDate = null, endDate = null, tzArg = null) {
+    const { models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
+    const tzRaw = tzArg || process.env.APP_TIMEZONE || 'UTC';
+    const tz = /^[A-Za-z0-9_\/+\-:]+$/.test(tzRaw) ? tzRaw : 'UTC';
+
+    const localDateExpr = literal(`(("orders"."created_at" AT TIME ZONE 'UTC') AT TIME ZONE '${tz}')::date`);
+    const andConds = [];
+    if (startDate) andConds.push(sqWhere(localDateExpr, Op.gte, startDate));
+    if (endDate) andConds.push(sqWhere(localDateExpr, Op.lte, endDate));
+
+    const hourExpr = literal(`DATE_PART('hour', (("orders"."created_at" AT TIME ZONE 'UTC') AT TIME ZONE '${tz}'))`);
+
+    const rows = await OrderModel.findAll({
+      attributes: [
+        [hourExpr, 'hour_num'],
+        [fn('COALESCE', fn('SUM', col('items.quantity')), 0), 'items_sold'],
+        [fn('COUNT', fn('DISTINCT', col('orders.id'))), 'orders_count'],
+        [fn('COALESCE', fn('SUM', literal('"items"."price" * "items"."quantity"')), 0), 'revenue'],
+      ],
+      ...(andConds.length ? { where: { [Op.and]: andConds } } : {}),
+      include: [{ model: OrderItemModel, as: 'items', attributes: [] }],
+      group: [hourExpr],
+      order: [[hourExpr, 'ASC']],
+      raw: true,
+    });
+
+    const hourly = Array.from({ length: 24 }, (_, h) => ({ hour: h, items_sold: 0, orders_count: 0, revenue: 0 }));
+    for (const r of rows) {
+      const hourIndex = parseInt(r.hour_num, 10) || 0;
+      if (hourIndex >= 0 && hourIndex < 24) {
+        hourly[hourIndex].items_sold = parseInt(r.items_sold, 10) || 0;
+        hourly[hourIndex].orders_count = parseInt(r.orders_count, 10) || 0;
+        hourly[hourIndex].revenue = parseFloat(r.revenue) || 0;
+      }
+    }
+    return hourly;
   }
 
   static addLocalizedFields(order, locale = DEFAULT_LOCALE) {

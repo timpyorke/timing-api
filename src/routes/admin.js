@@ -1164,6 +1164,11 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
  *           type: string
  *           format: date
  *         description: Optional end date (YYYY-MM-DD). When provided (alone or with start_date), aggregates by hour-of-day across the period. If both start_date and end_date are omitted and date is omitted, returns all-time.
+ *       - in: query
+ *         name: tz
+ *         schema:
+ *           type: string
+ *         description: Optional timezone (IANA name like Asia/Bangkok or offset like +07:00). Defaults to APP_TIMEZONE or UTC.
  *     responses:
  *       200:
  *         description: Hourly sales data retrieved successfully
@@ -1214,7 +1219,7 @@ router.get('/sales/today', authenticateToken, async (req, res) => {
  */
 router.get('/sales/hourly', authenticateToken, async (req, res) => {
   try {
-    const { date, start_date, end_date } = req.query;
+    const { date, start_date, end_date, tz } = req.query;
     if (date && !DATE_REGEX_YYYY_MM_DD.test(date)) {
       return res.status(400).json({ success: false, error: 'Invalid date format. Use YYYY-MM-DD' });
     }
@@ -1228,8 +1233,8 @@ router.get('/sales/hourly', authenticateToken, async (req, res) => {
     // If a specific date is provided, return that day's hourly (24 slots)
     // Otherwise, aggregate hourly-of-day across period or all-time
     const hourly = date
-      ? await Order.getHourlySalesByDay(date)
-      : await Order.getHourlySalesByPeriod(start_date || null, end_date || null);
+      ? await Order.getHourlySalesByDayLocal(date, tz || null)
+      : await Order.getHourlySalesByPeriodLocal(start_date || null, end_date || null, tz || null);
     const totals = hourly.reduce((acc, h) => {
       acc.items_sold += Number(h.items_sold || 0);
       acc.orders_count += Number(h.orders_count || 0);
@@ -1246,6 +1251,7 @@ router.get('/sales/hourly', authenticateToken, async (req, res) => {
           end_date: end_date || null,
           all_time: (!date && !start_date && !end_date) ? true : false,
         },
+        timezone: tz || process.env.APP_TIMEZONE || 'UTC',
         hourly: hourly.map(h => ({
           hour: h.hour,
           items_sold: parseInt(h.items_sold, 10) || 0,
