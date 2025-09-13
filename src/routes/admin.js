@@ -15,6 +15,14 @@ const {
 const { sendSuccess, sendError, asyncHandler } = require('../utils/responseHelpers');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES, DEFAULT_LOCALE, DATE_REGEX_YYYY_MM_DD, TOP_ITEMS_LIMITS, DAY_MS, DEFAULT_ANALYTICS_LOOKBACK_DAYS, LOG_MESSAGES } = require('../utils/constants');
 
+const { getDailySalesBreak } = require('../utils/salesDifference');
+
+// GET /api/admin/sales/daily-break
+router.get('/sales/daily-break', asyncHandler(async (req, res) => {
+  const result = await getDailySalesBreak();
+  sendSuccess(res, result);
+}));
+
 /**
  * @swagger
  * tags:
