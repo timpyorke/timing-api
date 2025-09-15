@@ -258,7 +258,8 @@ router.post('/orders', upload.single('attachment'), coerceMultipartFields, valid
     total: req.body.total,
     discount_amount: req.body.discount_amount || 0,
     customer_locale: locale,
-    notes: req.body.notes
+    notes: req.body.notes,
+    attachment_url: req.body.attachment_url || null,
   };
 
   // If a file was uploaded, set the public URL

@@ -354,6 +354,11 @@ const options = {
         CreateOrderRequest: {
           type: 'object',
           properties: {
+            customer_id: {
+              type: 'string',
+              description: 'Optional customer identifier (UUID) for linking orders',
+              example: '534f5d1b-03dc-4dbb-b7ea-a2843d5ea891'
+            },
             customer_info: {
               $ref: '#/components/schemas/CustomerInfo'
             },
@@ -374,6 +379,17 @@ const options = {
               type: 'number',
               format: 'decimal',
               example: 7.00
+            },
+            notes: {
+              type: 'string',
+              description: 'Optional notes or special instructions',
+              example: 'Less sugar, oat milk'
+            },
+            attachment_url: {
+              type: 'string',
+              format: 'uri',
+              description: 'Optional URL to payment slip or attachment',
+              example: 'https://example.com/payment-slip/abc123.jpg'
             }
           },
           required: ['customer_info', 'items', 'total']
@@ -384,6 +400,10 @@ const options = {
             id: {
               type: 'integer',
               example: 1
+            },
+            customer_id: {
+              type: 'string',
+              example: '534f5d1b-03dc-4dbb-b7ea-a2843d5ea891'
             },
             customer_info: {
               $ref: '#/components/schemas/CustomerInfo'
@@ -401,11 +421,14 @@ const options = {
               type: 'string',
               example: '1.50'
             },
+            notes: {
+              type: 'string',
+              example: 'Less sugar, oat milk'
+            },
             attachment_url: {
               type: 'string',
-              nullable: true,
-              example: '/uploads/orders/1726139512345_receipt.jpg',
-              description: 'Public URL path to the uploaded attachment (if any)'
+              format: 'uri',
+              example: 'https://example.com/payment-slip/abc123.jpg'
             },
             created_at: {
               type: 'string',

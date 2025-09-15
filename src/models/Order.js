@@ -3,7 +3,51 @@ const { Op, fn, col, literal, where: sqWhere } = require('sequelize');
 const orm = require('../orm');
 const Inventory = require('./Inventory');
 
+/**
+ * @typedef {(number|string)} Decimalish
+ */
+
+/**
+ * @typedef {Object} OrderItemDTO
+ * @property {number} id
+ * @property {number} menu_id
+ * @property {string} [menu_name]
+ * @property {string|null} [menu_description]
+ * @property {string|null} [image_url]
+ * @property {Record<string, any>} [customizations]
+ * @property {number} quantity
+ * @property {Decimalish} price
+ */
+
+/**
+ * @typedef {Object} OrderDTO
+ * @property {number} id
+ * @property {string|null} [customer_id]
+ * @property {Record<string, any>} customer_info
+ * @property {string} status
+ * @property {Decimalish} discount_amount
+ * @property {Decimalish} total
+ * @property {string|null} [notes]
+ * @property {string|null} [attachment_url]
+ * @property {string|null} [customer_locale]
+ * @property {string} [created_at]
+ * @property {string} [updated_at]
+ * @property {OrderItemDTO[]} [items]
+ */
+
 class Order {
+  /**
+   * Create a new order and return a localized plain object.
+   * @param {Object} orderData
+   * @param {string|null} [orderData.customer_id]
+   * @param {Record<string, any>} orderData.customer_info
+   * @param {Decimalish} orderData.total
+   * @param {Decimalish} [orderData.discount_amount]
+   * @param {string|null} [orderData.notes]
+   * @param {string|null} [orderData.customer_locale]
+   * @param {Array<{menu_id:number, quantity:number, price:Decimalish, customizations?:Record<string, any>}>} orderData.items
+   * @returns {Promise<OrderDTO>}
+   */
   static async create(orderData) {
     const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
     return await sequelize.transaction(async (t) => {
@@ -24,6 +68,7 @@ class Order {
         total: orderData.total,
         attachment_url: orderData.attachment_url || null,
         notes: orderData.notes || null,
+        attachment_url: orderData.attachment_url || null,
         customer_locale: orderData.customer_locale || null,
       }, { transaction: t });
 
@@ -66,6 +111,11 @@ class Order {
     });
   }
 
+  /**
+   * @param {number|string} id
+   * @param {string|null} [locale]
+   * @returns {Promise<OrderDTO|null>}
+   */
   static async findById(id, locale = null) {
     const { models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
     const order = await OrderModel.findByPk(id, {
@@ -94,6 +144,13 @@ class Order {
     return this.addLocalizedFields(shaped, orderLocale);
   }
 
+  /**
+   * @param {{status?:string,customer_id?:string|number,date?:string}} [filters]
+   * @param {string} [sortBy]
+   * @param {'ASC'|'DESC'|string} [sortOrder]
+   * @param {string|null} [locale]
+   * @returns {Promise<OrderDTO[]>}
+   */
   static async findAll(filters = {}, sortBy = 'created_at', sortOrder = 'DESC', locale = null) {
     const { models: { Order: OrderModel, OrderItem: OrderItemModel, Menu: MenuModel } } = orm;
     const where = {};
@@ -135,6 +192,11 @@ class Order {
     });
   }
 
+  /**
+   * @param {number|string} id
+   * @param {string} status
+   * @returns {Promise<{id:number,status:string,created_at?:string,updated_at?:string,total?:Decimalish,customer_info?:Record<string,any>,notes?:string|null}|null>}
+   */
   static async updateStatus(id, status) {
     const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
     return await sequelize.transaction(async (t) => {
@@ -206,6 +268,17 @@ class Order {
     });
   }
 
+  /**
+   * @param {number|string} id
+   * @param {Object} orderData
+   * @param {string|null} [orderData.customer_id]
+   * @param {Record<string, any>} orderData.customer_info
+   * @param {Decimalish} orderData.total
+   * @param {Decimalish} [orderData.discount_amount]
+   * @param {string|null} [orderData.notes]
+   * @param {Array<{menu_id:number, quantity:number, price:Decimalish, customizations?:Record<string, any>}>} orderData.items
+   * @returns {Promise<OrderDTO>}
+   */
   static async update(id, orderData) {
     const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
     return await sequelize.transaction(async (t) => {
@@ -250,6 +323,7 @@ class Order {
         total: orderData.total,
         discount_amount: orderData.discount_amount || 0,
         notes: orderData.notes || null,
+        attachment_url: orderData.attachment_url || null,
       }, { transaction: t });
 
       // Replace items
@@ -268,6 +342,10 @@ class Order {
     });
   }
 
+  /**
+   * @param {number|string} id
+   * @returns {Promise<OrderDTO|null>}
+   */
   static async delete(id) {
     const { sequelize, models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
     return await sequelize.transaction(async (t) => {
@@ -290,6 +368,9 @@ class Order {
     });
   }
 
+  /**
+   * @returns {Promise<{ total_orders:number, total_revenue:number, completed_orders:number, pending_orders:number }>}
+   */
   static async getTodaySales() {
     const { models: { Order: OrderModel } } = orm;
     const start = new Date();
@@ -306,6 +387,12 @@ class Order {
     return { total_orders, total_revenue, completed_orders, pending_orders };
   }
 
+  /**
+   * @param {string|null} [startDate]
+   * @param {string|null} [endDate]
+   * @param {string} [locale]
+   * @returns {Promise<{ summary: Record<string, Decimalish>, daily_breakdown: Array<Record<string, Decimalish>> }>}
+   */
   static async getSalesInsights(startDate = null, endDate = null, locale = DEFAULT_LOCALE) {
     const { models: { Order: OrderModel } } = orm;
     // Build optional date range: if no dates provided, return all-time (no where clause)
@@ -368,7 +455,7 @@ class Order {
    * Aggregates total items sold, number of orders, and revenue per hour (0-23).
    *
    * @param {string|null} dateStr - Target date in YYYY-MM-DD (defaults to today if null)
-   * @returns {Array<{hour:number, items_sold:number, orders_count:number, revenue:number}>}
+   * @returns {Promise<Array<{hour:number, items_sold:number, orders_count:number, revenue:number}>>}
    */
   static async getHourlySalesByDay(dateStr = null, tzArg = null) {
     const { models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
@@ -437,7 +524,7 @@ class Order {
    *
    * @param {string|null} startDate - YYYY-MM-DD inclusive start (optional)
    * @param {string|null} endDate - YYYY-MM-DD inclusive end (optional)
-   * @returns {Array<{hour:number, items_sold:number, orders_count:number, revenue:number}>}
+   * @returns {Promise<Array<{hour:number, items_sold:number, orders_count:number, revenue:number}>>}
    */
   static async getHourlySalesByPeriod(startDate = null, endDate = null) {
     const { models: { Order: OrderModel, OrderItem: OrderItemModel } } = orm;
@@ -483,6 +570,13 @@ class Order {
     return hourly;
   }
 
+  /**
+   * @param {string|null} [startDate]
+   * @param {string|null} [endDate]
+   * @param {number} [limit]
+   * @param {string} [locale]
+   * @returns {Promise<Array<{menu_id:number,menu_name:string,category:string,base_price:number,image_url:string|null,total_quantity_sold:number,number_of_orders:number,total_revenue:number,average_price:number,percentage_of_total_sales:number}>>}
+   */
   static async getTopSellingItems(startDate = null, endDate = null, limit = TOP_ITEMS_LIMITS.DEFAULT, locale = DEFAULT_LOCALE) {
     const { models: { Order, OrderItem, Menu } } = orm;
     // Build optional date range for orders; if none, compute all-time
@@ -631,6 +725,11 @@ class Order {
     return hourly;
   }
 
+  /**
+   * @param {any} order
+   * @param {string} [locale]
+   * @returns {OrderDTO}
+   */
   static addLocalizedFields(order, locale = DEFAULT_LOCALE) {
     if (!order) return order;
     

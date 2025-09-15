@@ -53,8 +53,9 @@ function buildOrderCreatedMessage(order) {
   const orderNumber = order?.id ?? order?.order_number ?? '—';
   const createdAt = order?.created_at || new Date().toISOString();
   const timePart = formatOrderDate(createdAt);
-  const customerName = order?.customer_name ? order?.customer_name :'Customer';
-  const note = order?.notes ? ` (${order.notes})` : '';
+  const customerName = order?.customer_info?.name ? order?.customer_info?.name :'Customer';
+   const customerTable = order?.customer_info?.table_number ? `Table: ${order?.customer_info?.table_number}` :'-';
+  const note = order?.notes ? `Note: (${order.notes})` : '';
 
   // Items may come localized from Order model
   const items = Array.isArray(order?.items) ? order.items : [];
@@ -75,6 +76,7 @@ function buildOrderCreatedMessage(order) {
     itemHeader,
     ...itemLines,
     divider,
+    customerTable,
     note,
     divider,
     link,

@@ -15,6 +15,7 @@ const validateOrder = [
   body('customer_info').isObject().withMessage('Customer info must be an object'),
   body('customer_info.name').notEmpty().withMessage('Customer name is required'),
   body('customer_info.phone').optional().matches(/^[+]?[\d\s\-\(\)]{7,20}$/).withMessage('Invalid phone number format'),
+  body('customer_id').optional().isString().withMessage('Customer ID must be a string'),
   body('items').isArray({ min: 1 }).withMessage('Order must contain at least one item'),
   body('items.*.menu_id').isInt({ min: 1 }).withMessage('Valid menu ID required'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
@@ -22,6 +23,11 @@ const validateOrder = [
   body('items.*.customizations').optional().isObject().withMessage('Customizations must be an object'),
   body('discount_amount').optional().isFloat({ min: 0 }).withMessage('Discount amount must be a non-negative number'),
   body('total').isFloat({ min: 0 }).withMessage('Total must be a positive number'),
+  body('notes').optional().isString().withMessage('Notes must be a string'),
+  body('attachment_url').optional().custom((value) => {
+    if (value == null || value === '') return true;
+    return /^https?:\/\/.+/.test(value);
+  }).withMessage('attachment_url must be a valid URL or empty'),
   handleValidationErrors
 ];
 

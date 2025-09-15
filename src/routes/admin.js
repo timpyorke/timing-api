@@ -350,10 +350,14 @@ router.get('/orders', authenticateToken, asyncHandler(async (req, res) => {
 router.post('/orders', authenticateToken, async (req, res) => {
   try {
     const orderData = {
+      customer_id: req.body.customer_id || null,
       customer_info: req.body.customer_info,
       items: req.body.items,
       total: req.body.total,
-      discount_amount: req.body.discount_amount || 0
+      discount_amount: req.body.discount_amount || 0,
+      notes: req.body.notes || null,
+      attachment_url: req.body.attachment_url || null,
+      customer_locale: req.locale || DEFAULT_LOCALE,
     };
 
     // Validate that menu items exist and calculate subtotal
