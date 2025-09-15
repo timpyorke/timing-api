@@ -30,19 +30,44 @@ async function getAllLineUserIds() {
   }
 }
 
-// Format date like: 9 Sep, 12.00PM (no space before AM/PM, dot as separator)
-function formatOrderDate(dateStr) {
+// Format date like: 9 Sep, 12.00PM (local timezone from APP_TIMEZONE)
+function formatOrderDate(dateStr, tzArg = null) {
   try {
     const d = new Date(dateStr);
-    const day = d.getDate();
+    const tzRaw = tzArg || process.env.APP_TIMEZONE || 'UTC';
+    const tz = /^[A-Za-z0-9_\/+\-:]+$/.test(tzRaw) ? tzRaw : 'UTC';
+
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).formatToParts(d);
+
+    const get = (t) => parts.find(p => p.type === t)?.value;
+    const day = get('day');
+    const month = get('month');
+    const hour = get('hour');
+    const minute = get('minute');
+    const period = (get('dayPeriod') || '').toUpperCase();
+
+    if (day && month && hour && minute && period) {
+      const hourNum = String(parseInt(hour, 10));
+      return `${day} ${month}, ${hourNum}.${minute}${period}`;
+    }
+
+    // Fallback to server-local if parts missing
+    const dayNum = d.getDate();
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const month = monthNames[d.getMonth()];
+    const monthName = monthNames[d.getMonth()];
     let hours = d.getHours();
     const minutes = d.getMinutes().toString().padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12;
     if (hours === 0) hours = 12;
-    return `${day} ${month}, ${hours}.${minutes}${ampm}`;
+    return `${dayNum} ${monthName}, ${hours}.${minutes}${ampm}`;
   } catch (_) {
     return dateStr;
   }
@@ -53,8 +78,9 @@ function buildOrderCreatedMessage(order) {
   const orderNumber = order?.id ?? order?.order_number ?? '—';
   const createdAt = order?.created_at || new Date().toISOString();
   const timePart = formatOrderDate(createdAt);
-  const customerName = order?.customer_info?.name ? order?.customer_info?.name :'Customer';
-   const customerTable = order?.customer_info?.table_number ? `Table: ${order?.customer_info?.table_number}` :'-';
+  const customerName = order?.customer_info?.name ? `Name: ${order?.customer_info?.name}` :'Customer';
+  const customerPhone = order?.customer_info?.phone ? `Phone: ${order?.customer_info?.phone}` :'-';
+  const customerTable = order?.customer_info?.table_number ? `Table: ${order?.customer_info?.table_number}` :'-';
   const note = order?.notes ? `Note: (${order.notes})` : '';
 
   // Items may come localized from Order model
@@ -72,6 +98,7 @@ function buildOrderCreatedMessage(order) {
     atLine,
     divider,
     customerName,
+    customerPhone,
     divider,
     itemHeader,
     ...itemLines,
