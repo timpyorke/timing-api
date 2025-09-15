@@ -401,6 +401,12 @@ const options = {
               type: 'string',
               example: '1.50'
             },
+            attachment_url: {
+              type: 'string',
+              nullable: true,
+              example: '/uploads/orders/1726139512345_receipt.jpg',
+              description: 'Public URL path to the uploaded attachment (if any)'
+            },
             created_at: {
               type: 'string',
               format: 'date-time',
