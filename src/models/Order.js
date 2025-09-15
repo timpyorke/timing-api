@@ -28,6 +28,7 @@ const Inventory = require('./Inventory');
  * @property {Decimalish} discount_amount
  * @property {Decimalish} total
  * @property {string|null} [notes]
+ * @property {string|null} [attachment_url]
  * @property {string|null} [customer_locale]
  * @property {string} [created_at]
  * @property {string} [updated_at]
@@ -66,6 +67,7 @@ class Order {
         discount_amount: orderData.discount_amount || 0,
         total: orderData.total,
         notes: orderData.notes || null,
+        attachment_url: orderData.attachment_url || null,
         customer_locale: orderData.customer_locale || null,
       }, { transaction: t });
 
@@ -320,6 +322,7 @@ class Order {
         total: orderData.total,
         discount_amount: orderData.discount_amount || 0,
         notes: orderData.notes || null,
+        attachment_url: orderData.attachment_url || null,
       }, { transaction: t });
 
       // Replace items

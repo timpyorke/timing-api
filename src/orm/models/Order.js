@@ -10,6 +10,7 @@ module.exports = (sequelize) => {
     discount_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     total: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     notes: { type: DataTypes.STRING(100), allowNull: true, field: 'notes' },
+    attachment_url: { type: DataTypes.TEXT, allowNull: true },
   });
 
   return Order;
