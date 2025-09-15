@@ -66,6 +66,7 @@ class Order {
         status: ORDER_STATUS.PENDING,
         discount_amount: orderData.discount_amount || 0,
         total: orderData.total,
+        attachment_url: orderData.attachment_url || null,
         notes: orderData.notes || null,
         attachment_url: orderData.attachment_url || null,
         customer_locale: orderData.customer_locale || null,

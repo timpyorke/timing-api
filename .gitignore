@@ -53,6 +53,9 @@ jspm_packages/
 .DS_Store
 Thumbs.db
 
+# Uploaded files
+public/uploads/
+
 # Firebase
 firebase-key.json
 service-account-key.json

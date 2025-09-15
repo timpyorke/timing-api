@@ -1,12 +1,89 @@
 const express = require('express');
 const router = express.Router();
 const cache = require('memory-cache');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const Menu = require('../models/Menu');
 const Order = require('../models/Order');
 const lineService = require('../services/lineService');
 const { validateOrder, validateId } = require('../middleware/validation');
 const { sendSuccess, sendError, handleDatabaseError, asyncHandler } = require('../utils/responseHelpers');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES, DEFAULT_LOCALE, LOG_MESSAGES } = require('../utils/constants');
+
+// Upload config for optional order attachment
+const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'orders');
+function ensureDirSync(dir) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (_) { /* noop */ }
+}
+ensureDirSync(UPLOAD_DIR);
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, UPLOAD_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const safeBase = path.basename(file.originalname).replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const ext = path.extname(safeBase) || '';
+    const base = safeBase.replace(ext, '');
+    const stamp = Date.now();
+    cb(null, `${stamp}_${base}${ext}`);
+  }
+});
+
+const ALLOWED_MIME = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'application/pdf'
+]);
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME.has(file.mimetype)) return cb(null, true);
+    cb(new Error('Unsupported file type'));
+  }
+});
+
+// Convert JSON-like string fields to objects for multipart requests
+function coerceMultipartFields(req, res, next) {
+  const maybeParse = (val) => {
+    if (val == null) return val;
+    if (typeof val === 'string') {
+      try { return JSON.parse(val); } catch (_) { return Symbol.for('parse_error'); }
+    }
+    return val;
+  };
+
+  const isMultipart = typeof req.headers['content-type'] === 'string' && req.headers['content-type'].includes('multipart/form-data');
+  if (!isMultipart) return next();
+
+  const parsedCustomer = maybeParse(req.body.customer_info);
+  if (parsedCustomer === Symbol.for('parse_error')) {
+    return sendError(res, 'Invalid JSON in customer_info', 400);
+  }
+  const parsedItems = maybeParse(req.body.items);
+  if (parsedItems === Symbol.for('parse_error')) {
+    return sendError(res, 'Invalid JSON in items', 400);
+  }
+  if (parsedCustomer !== undefined) req.body.customer_info = parsedCustomer;
+  if (parsedItems !== undefined) req.body.items = parsedItems;
+
+  // Optional numeric coercion
+  if (typeof req.body.total === 'string') {
+    const n = Number(req.body.total);
+    if (!Number.isFinite(n)) return sendError(res, 'Invalid total', 400);
+    req.body.total = n;
+  }
+  if (typeof req.body.discount_amount === 'string' && req.body.discount_amount !== '') {
+    const n = Number(req.body.discount_amount);
+    if (!Number.isFinite(n) || n < 0) return sendError(res, 'Invalid discount_amount', 400);
+    req.body.discount_amount = n;
+  }
+  next();
+}
 
 const CACHE_KEY = 'full-menu';
 const CACHE_TIME_MS = 5 * 60 * 1000; // 5 minutes
@@ -123,6 +200,26 @@ router.get('/menu/:id', validateId, asyncHandler(async (req, res) => {
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/CreateOrderRequest'
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               customer_info:
+ *                 type: string
+ *                 description: JSON string for CustomerInfo
+ *               items:
+ *                 type: string
+ *                 description: JSON string array of OrderItem
+ *               discount_amount:
+ *                 type: number
+ *                 description: Optional discount amount
+ *               total:
+ *                 type: number
+ *               notes:
+ *                 type: string
+ *               attachment:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       201:
  *         description: Order created successfully
@@ -152,7 +249,7 @@ router.get('/menu/:id', validateId, asyncHandler(async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
+router.post('/orders', upload.single('attachment'), coerceMultipartFields, validateOrder, asyncHandler(async (req, res) => {
   const locale = req.locale || DEFAULT_LOCALE;
   const orderData = {
     customer_id: req.body.customer_id,
@@ -164,6 +261,11 @@ router.post('/orders', validateOrder, asyncHandler(async (req, res) => {
     notes: req.body.notes,
     attachment_url: req.body.attachment_url || null,
   };
+
+  // If a file was uploaded, set the public URL
+  if (req.file && req.file.filename) {
+    orderData.attachment_url = `/uploads/orders/${req.file.filename}`;
+  }
 
   // Validate that menu items exist and calculate total
   const itemIds = orderData.items.map(item => item.menu_id);
