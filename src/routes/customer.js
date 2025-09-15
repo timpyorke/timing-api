@@ -380,7 +380,8 @@ router.get('/orders/:id/status', validateId, asyncHandler(async (req, res) => {
     items: order.items
   };
 
-  sendSuccess(res, orderStatus);
+  // Return raw JSON to keep image URLs consistent with /api/menu (no proxy rewrite)
+  return res.json({ success: true, data: orderStatus });
 }));
 
 /**
@@ -421,7 +422,8 @@ router.get('/orders/:id/status', validateId, asyncHandler(async (req, res) => {
 router.get('/orders/customer/:customer_id', asyncHandler(async (req, res) => {
   const locale = req.locale || DEFAULT_LOCALE;
   const orders = await Order.findAll({ customer_id: req.params.customer_id }, 'created_at', 'DESC', locale);
-  sendSuccess(res, orders);
+  // Return raw JSON to keep image URLs consistent with /api/menu (no proxy rewrite)
+  return res.json({ success: true, data: orders });
 }));
 
 module.exports = router;
