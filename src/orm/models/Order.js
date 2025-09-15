@@ -9,6 +9,7 @@ module.exports = (sequelize) => {
     status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: ORDER_STATUS.PENDING },
     discount_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     total: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    attachment_url: { type: DataTypes.TEXT, allowNull: true },
     notes: { type: DataTypes.STRING(100), allowNull: true, field: 'notes' },
   });
 

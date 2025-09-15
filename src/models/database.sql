@@ -55,6 +55,7 @@ CREATE TABLE orders (
     status VARCHAR(20) DEFAULT 'pending',
     discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     total DECIMAL(10,2) NOT NULL,
+    attachment_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes VARCHAR(100)
