@@ -1,5 +1,5 @@
 const { models } = require('../orm');
-const { Op } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 
 /**
  * Compare today's and yesterday's total item sales.
@@ -13,27 +13,27 @@ async function getDailySalesBreak() {
   startYesterday.setDate(startYesterday.getDate() - 1);
   const endYesterday = new Date(startToday);
 
-  // Get all orders created today and yesterday
-  const todayOrders = await models.Order.findAll({
-    where: {
-      created_at: { [Op.gte]: startToday }
-    },
-    include: [{ model: models.OrderItem, as: 'items' }]
-  });
-  const yesterdayOrders = await models.Order.findAll({
-    where: {
-      created_at: { [Op.gte]: startYesterday, [Op.lt]: endYesterday }
-    },
-    include: [{ model: models.OrderItem, as: 'items' }]
-  });
+  const sumItemsBetween = async (start, end = null) => {
+    const orderWhere = {};
+    if (start) orderWhere.created_at = { [Op.gte]: start };
+    if (end) orderWhere.created_at = { ...(orderWhere.created_at || {}), [Op.lt]: end };
 
-  // Count total items sold
-  const todayCount = todayOrders.reduce((sum, order) => {
-    return sum + order.items.reduce((s, item) => s + item.quantity, 0);
-  }, 0);
-  const yesterdayCount = yesterdayOrders.reduce((sum, order) => {
-    return sum + order.items.reduce((s, item) => s + item.quantity, 0);
-  }, 0);
+    const [result] = await models.OrderItem.findAll({
+      attributes: [[fn('COALESCE', fn('SUM', col('quantity')), 0), 'items_count']],
+      include: [{
+        model: models.Order,
+        required: true,
+        attributes: [],
+        where: orderWhere,
+      }],
+      raw: true,
+    });
+
+    return parseInt(result?.items_count, 10) || 0;
+  };
+
+  const todayCount = await sumItemsBetween(startToday);
+  const yesterdayCount = await sumItemsBetween(startYesterday, endYesterday);
 
   return {
     todayCount,
