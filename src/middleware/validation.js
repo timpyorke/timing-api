@@ -24,6 +24,8 @@ const validateOrder = [
   body('discount_amount').optional().isFloat({ min: 0 }).withMessage('Discount amount must be a non-negative number'),
   body('total').isFloat({ min: 0 }).withMessage('Total must be a positive number'),
   body('notes').optional().isString().withMessage('Notes must be a string'),
+  body('payment_method').optional({ nullable: true }).isString().trim()
+    .isLength({ min: 1, max: 50 }).withMessage('Payment method must be between 1 and 50 characters'),
   body('attachment_url').optional().custom((value) => {
     if (value == null || value === '') return true;
     return /^https?:\/\/.+/.test(value);

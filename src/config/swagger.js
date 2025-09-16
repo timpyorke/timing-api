@@ -385,6 +385,12 @@ const options = {
               description: 'Optional notes or special instructions',
               example: 'Less sugar, oat milk'
             },
+            payment_method: {
+              type: 'string',
+              description: 'Optional payment method used for the order',
+              maxLength: 50,
+              example: 'PromptPay'
+            },
             attachment_url: {
               type: 'string',
               format: 'uri',
@@ -424,6 +430,10 @@ const options = {
             notes: {
               type: 'string',
               example: 'Less sugar, oat milk'
+            },
+            payment_method: {
+              type: 'string',
+              example: 'PromptPay'
             },
             attachment_url: {
               type: 'string',

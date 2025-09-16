@@ -56,6 +56,8 @@ module.exports = {
     AT_LABEL_PREFIX: 'At  ', // note: double space intentional
     DIVIDER: '---',
     ITEM_HEADER: 'Item',
+    PAYMENT_LABEL_PREFIX: 'Payment: ',
+    PAYMENT_UNKNOWN_VALUE: '-',
     FOLLOW_THANK_YOU: 'Thanks for following! You will now receive order notifications.',
     REGISTER_SUCCESS: 'Registered successfully. You will receive notifications here.',
     HELP_TEXT: 'Commands: register | help',

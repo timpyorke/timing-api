@@ -30,6 +30,7 @@ const Inventory = require('./Inventory');
  * @property {string|null} [notes]
  * @property {string|null} [attachment_url]
  * @property {string|null} [customer_locale]
+ * @property {string|null} [payment_method]
  * @property {string} [created_at]
  * @property {string} [updated_at]
  * @property {OrderItemDTO[]} [items]
@@ -45,6 +46,7 @@ class Order {
    * @param {Decimalish} [orderData.discount_amount]
    * @param {string|null} [orderData.notes]
    * @param {string|null} [orderData.customer_locale]
+   * @param {string|null} [orderData.payment_method]
    * @param {Array<{menu_id:number, quantity:number, price:Decimalish, customizations?:Record<string, any>}>} orderData.items
    * @returns {Promise<OrderDTO>}
    */
@@ -68,7 +70,7 @@ class Order {
         total: orderData.total,
         attachment_url: orderData.attachment_url || null,
         notes: orderData.notes || null,
-        attachment_url: orderData.attachment_url || null,
+        payment_method: orderData.payment_method || null,
         customer_locale: orderData.customer_locale || null,
       }, { transaction: t });
 

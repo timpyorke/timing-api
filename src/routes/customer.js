@@ -251,6 +251,9 @@ router.get('/menu/:id', validateId, asyncHandler(async (req, res) => {
  */
 router.post('/orders', upload.single('attachment'), coerceMultipartFields, validateOrder, asyncHandler(async (req, res) => {
   const locale = req.locale || DEFAULT_LOCALE;
+  const paymentMethod = typeof req.body.payment_method === 'string'
+    ? req.body.payment_method.trim()
+    : null;
   const orderData = {
     customer_id: req.body.customer_id,
     customer_info: req.body.customer_info,
@@ -259,6 +262,7 @@ router.post('/orders', upload.single('attachment'), coerceMultipartFields, valid
     discount_amount: req.body.discount_amount || 0,
     customer_locale: locale,
     notes: req.body.notes,
+    payment_method: paymentMethod || null,
     attachment_url: req.body.attachment_url || null,
   };
 
