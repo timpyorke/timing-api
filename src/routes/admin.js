@@ -349,6 +349,9 @@ router.get('/orders', authenticateToken, asyncHandler(async (req, res) => {
  */
 router.post('/orders', authenticateToken, async (req, res) => {
   try {
+    const paymentMethod = typeof req.body.payment_method === 'string'
+      ? req.body.payment_method.trim()
+      : null;
     const orderData = {
       customer_id: req.body.customer_id || null,
       customer_info: req.body.customer_info,
@@ -356,6 +359,7 @@ router.post('/orders', authenticateToken, async (req, res) => {
       total: req.body.total,
       discount_amount: req.body.discount_amount || 0,
       notes: req.body.notes || null,
+      payment_method: paymentMethod || null,
       attachment_url: req.body.attachment_url || null,
       customer_locale: req.locale || DEFAULT_LOCALE,
     };

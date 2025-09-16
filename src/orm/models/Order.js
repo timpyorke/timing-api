@@ -11,7 +11,7 @@ module.exports = (sequelize) => {
     total: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     attachment_url: { type: DataTypes.TEXT, allowNull: true },
     notes: { type: DataTypes.STRING(100), allowNull: true, field: 'notes' },
-    attachment_url: { type: DataTypes.TEXT, allowNull: true },
+    payment_method: { type: DataTypes.STRING(50), allowNull: true },
   });
 
   return Order;

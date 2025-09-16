@@ -82,6 +82,10 @@ function buildOrderCreatedMessage(order) {
   const customerPhone = order?.customer_info?.phone ? `Phone: ${order?.customer_info?.phone}` :'-';
   const customerTable = order?.customer_info?.table_number ? `Table: ${order?.customer_info?.table_number}` :'-';
   const note = order?.notes ? `Note: (${order.notes})` : '';
+  const paymentValue = typeof order?.payment_method === 'string' && order.payment_method.trim()
+    ? order.payment_method.trim()
+    : LINE_MESSAGES.PAYMENT_UNKNOWN_VALUE;
+  const paymentLine = `${LINE_MESSAGES.PAYMENT_LABEL_PREFIX}${paymentValue}`;
 
   // Items may come localized from Order model
   const items = Array.isArray(order?.items) ? order.items : [];
@@ -99,6 +103,7 @@ function buildOrderCreatedMessage(order) {
     divider,
     customerName,
     customerPhone,
+    paymentLine,
     divider,
     itemHeader,
     ...itemLines,
