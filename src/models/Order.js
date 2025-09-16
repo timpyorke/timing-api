@@ -3,6 +3,8 @@ const { Op, fn, col, literal, where: sqWhere } = require('sequelize');
 const orm = require('../orm');
 const Inventory = require('./Inventory');
 
+const qualifyColumn = (alias, column) => literal(`"${alias}"."${column}"`);
+
 /**
  * @typedef {(number|string)} Decimalish
  */
@@ -165,7 +167,7 @@ class Order {
     }
     const safeSortBy = ['created_at', 'updated_at', 'total', 'status'].includes(sortBy) ? sortBy : 'created_at';
     const sortDirection = sortOrder && String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    const orderBy = [[col(`orders.${safeSortBy}`), sortDirection ]];
+    const orderBy = [[qualifyColumn('orders', safeSortBy), sortDirection ]];
     const orders = await OrderModel.findAll({
       where,
       include: [{
@@ -479,9 +481,9 @@ class Order {
     // Query aggregates grouped by hour
     const rows = await OrderModel.findAll({
       attributes: [
-        [fn('DATE_TRUNC', 'hour', col('orders.created_at')), 'hour_bucket'],
-        [fn('COALESCE', fn('SUM', col('items.quantity')), 0), 'items_sold'],
-        [fn('COUNT', fn('DISTINCT', col('orders.id'))), 'orders_count'],
+        [fn('DATE_TRUNC', 'hour', qualifyColumn('orders', 'created_at')), 'hour_bucket'],
+        [fn('COALESCE', fn('SUM', qualifyColumn('items', 'quantity')), 0), 'items_sold'],
+        [fn('COUNT', fn('DISTINCT', qualifyColumn('orders', 'id'))), 'orders_count'],
         [fn('COALESCE', fn('SUM', literal('"items"."price" * "items"."quantity"')), 0), 'revenue'],
       ],
       where: { created_at: { [Op.between]: [start, end] } },
@@ -550,9 +552,9 @@ class Order {
 
     const rows = await OrderModel.findAll({
       attributes: [
-        [fn('DATE_PART', 'hour', col('orders.created_at')), 'hour_num'],
-        [fn('COALESCE', fn('SUM', col('items.quantity')), 0), 'items_sold'],
-        [fn('COUNT', fn('DISTINCT', col('orders.id'))), 'orders_count'],
+        [fn('DATE_PART', 'hour', qualifyColumn('orders', 'created_at')), 'hour_num'],
+        [fn('COALESCE', fn('SUM', qualifyColumn('items', 'quantity')), 0), 'items_sold'],
+        [fn('COUNT', fn('DISTINCT', qualifyColumn('orders', 'id'))), 'orders_count'],
         [fn('COALESCE', fn('SUM', literal('"items"."price" * "items"."quantity"')), 0), 'revenue'],
       ],
       ...(whereRange ? { where: whereRange } : {}),
@@ -662,8 +664,8 @@ class Order {
     const rows = await OrderModel.findAll({
       attributes: [
         [hourExpr, 'hour_num'],
-        [fn('COALESCE', fn('SUM', col('items.quantity')), 0), 'items_sold'],
-        [fn('COUNT', fn('DISTINCT', col('orders.id'))), 'orders_count'],
+        [fn('COALESCE', fn('SUM', qualifyColumn('items', 'quantity')), 0), 'items_sold'],
+        [fn('COUNT', fn('DISTINCT', qualifyColumn('orders', 'id'))), 'orders_count'],
         [fn('COALESCE', fn('SUM', literal('"items"."price" * "items"."quantity"')), 0), 'revenue'],
       ],
       where: sqWhere(localDateExpr, Op.eq, targetDate),
@@ -706,8 +708,8 @@ class Order {
     const rows = await OrderModel.findAll({
       attributes: [
         [hourExpr, 'hour_num'],
-        [fn('COALESCE', fn('SUM', col('items.quantity')), 0), 'items_sold'],
-        [fn('COUNT', fn('DISTINCT', col('orders.id'))), 'orders_count'],
+        [fn('COALESCE', fn('SUM', qualifyColumn('items', 'quantity')), 0), 'items_sold'],
+        [fn('COUNT', fn('DISTINCT', qualifyColumn('orders', 'id'))), 'orders_count'],
         [fn('COALESCE', fn('SUM', literal('"items"."price" * "items"."quantity"')), 0), 'revenue'],
       ],
       ...(andConds.length ? { where: { [Op.and]: andConds } } : {}),
