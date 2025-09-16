@@ -164,6 +164,8 @@ class Order {
       where.created_at = { [Op.between]: [start, end] };
     }
     const safeSortBy = ['created_at', 'updated_at', 'total', 'status'].includes(sortBy) ? sortBy : 'created_at';
+    const sortDirection = sortOrder && String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const orderBy = [[col(`orders.${safeSortBy}`), sortDirection ]];
     const orders = await OrderModel.findAll({
       where,
       include: [{
@@ -171,8 +173,8 @@ class Order {
         as: 'items',
         include: [{ model: MenuModel, as: 'menu', attributes: ['name_en', 'name_th', 'description_en', 'description_th', 'image_url'] }]
       }],
-      // Order by base model column without alias to avoid association lookup errors
-      order: [[safeSortBy, sortOrder && String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC']],
+      // Always qualify column with base table alias to avoid ambiguity with joined tables
+      order: orderBy,
     });
     return orders.map(o => {
       const plain = o.get({ plain: true });
