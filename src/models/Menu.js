@@ -63,9 +63,12 @@ class Menu {
     return existing.get({ plain: true });
   }
 
-  static async getMenuByCategory(locale = require('../utils/constants').DEFAULT_LOCALE) {
+  static async getMenuByCategory(locale = require('../utils/constants').DEFAULT_LOCALE, options = {}) {
     const { Menu } = orm.models;
-    const menus = await Menu.findAll({ where: { active: true } });
+    const normalizedOptions = (options && typeof options === 'object') ? options : {};
+    const activeOnly = normalizedOptions.activeOnly ?? true;
+    const queryOptions = activeOnly ? { where: { active: true } } : {};
+    const menus = await Menu.findAll(queryOptions);
     const plain = menus.map(m => m.get({ plain: true }));
     // Group by category pair
     const groups = new Map();

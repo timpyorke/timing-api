@@ -132,7 +132,7 @@ router.get('/menu', asyncHandler(async (req, res) => {
     return res.json({ success: true, data: cachedMenu });
   }
 
-  const menu = await Menu.getMenuByCategory(locale);
+  const menu = await Menu.getMenuByCategory(locale, { activeOnly: false });
   cache.put(cacheKey, menu, CACHE_TIME_MS);
 
   res.json({ success: true, data: menu });
