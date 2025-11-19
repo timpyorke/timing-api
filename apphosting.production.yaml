@@ -51,7 +51,7 @@ env:
     value: f047f41a9be1804aeda115aaae042e98
 
 -   variable: NODE_ENV
-    value: development
+    value: production
 
 -   variable: PORT
     value: 8000
