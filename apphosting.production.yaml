@@ -9,7 +9,7 @@ env:
     value: Asia/Bangkok
 
 -   variable: DATABASE_URL
-    secret: postgresql://postgres.kzerorfeuabowkimywnf:Timing%24upabase@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+    value: postgresql://postgres.kzerorfeuabowkimywnf:Timing%24upabase@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true
 
 -   variable: FIREBASE_AUTH_URI
     value: https://accounts.google.com/o/oauth2/auth
